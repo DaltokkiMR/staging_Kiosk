@@ -16,6 +16,9 @@ class SignupIn(BaseModel):
     password: str = Field(min_length=4)
     name: str
     role: Role = Role.CONSUMER
+    birthdate: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    gender: str | None = Field(None, max_length=10)
+    phone: str | None = Field(None, max_length=20)
 
 
 class LoginIn(BaseModel):
@@ -34,12 +37,23 @@ class UserOut(ORM):
     email: str
     name: str
     role: str
+    birthdate: str | None = None
+    gender: str | None = None
+    phone: str | None = None
     preferences: dict
 
 
 class PreferencesIn(BaseModel):
+    # 얼마나 잘 먹는지 (0 전혀 못 먹어요 ~ 5 아주 잘 먹어요)
     spicy: int | None = Field(None, ge=0, le=5)
+    salty: int | None = Field(None, ge=0, le=5)
+    sour: int | None = Field(None, ge=0, le=5)
     sweet: int | None = Field(None, ge=0, le=5)
+    oily: int | None = Field(None, ge=0, le=5)
+    likes_text: str | None = Field(None, max_length=500)
+    dislikes_text: str | None = Field(None, max_length=500)
+    notes: str | None = Field(None, max_length=500)  # 특이사항 (임신 중, 아이와 함께, 치아 교정 중 등)
+    diet: list[str] | None = None  # 채식, 비건, 할랄, 저염, 저당 …
     dislikes: list[str] | None = None
     allergies: list[str] | None = None
 

@@ -46,6 +46,8 @@ class Settings:
     DEMO_MODE: bool = os.getenv("DEMO_MODE", "true").lower() == "true"
     # true면 데모용 가짜 기록(지난 주문·매출·대화·포인트)까지 채움. 기본은 빈 상태(계정·가게·메뉴·키오스크만)
     SEED_HISTORY: bool = os.getenv("SEED_HISTORY", "false").lower() == "true"
+    # false면 데모 손님 계정(user@demo.com) 없이 시작 → 시연에서 손님이 직접 회원가입 (python -m app.reset_db --demo)
+    SEED_CUSTOMER: bool = os.getenv("SEED_CUSTOMER", "true").lower() == "true"
 
 
 settings = Settings()

@@ -47,25 +47,51 @@ const typeLabel = (t) => PAY_TYPES.find((p) => p.value === t)?.label || t;
 
 // ===== 로그인 (시안: 처음엔 문구 + 로그인하기, 누르면 입력칸이 열림) =====
 let signupMode = false;
+// 시연용: 회원가입 칸을 미리 채워둠 (취향은 가입 후 직접 설정)
+const SIGNUP_DEMO = { name: '김민지', birth: '2003-05-14', gender: '여', phone: '010-1234-5678', email: 'minji@uniorder.kr', pw: '1234' };
 const showFields = () => $('#loginFields').classList.remove('hidden');
+const setGender = (g) => document.querySelectorAll('#signupGender [data-g]').forEach((b) => b.classList.toggle('on', b.dataset.g === g));
+const agreeBoxes = () => [...document.querySelectorAll('#signupAgree input:not([data-all])')];
+if (ls('lastEmail')) $('#loginEmail').value = ls('lastEmail');
 $('#toggleSignup').addEventListener('click', () => {
   signupMode = !signupMode; showFields();
-  $('#signupName').classList.toggle('hidden', !signupMode);
+  $('#loginView').classList.toggle('signup', signupMode);
+  document.querySelectorAll('#loginView .signup-only').forEach((el) => el.classList.toggle('hidden', !signupMode));
   $('#loginBtn').textContent = signupMode ? '가입하기' : '로그인하기';
   $('#toggleSignup').textContent = signupMode ? '이미 계정이 있어요' : '계정이 없으신가요?';
-  if (signupMode) { $('#loginEmail').value = ''; $('#loginPw').value = ''; }
+  if (signupMode) {
+    const d = SIGNUP_DEMO;
+    $('#signupName').value = d.name; $('#signupBirth').value = d.birth; $('#signupPhone').value = d.phone;
+    $('#loginEmail').value = d.email; $('#loginPw').value = d.pw; $('#signupPw2').value = d.pw; setGender(d.gender);
+    document.querySelectorAll('#signupAgree input').forEach((c) => (c.checked = true));
+  }
+});
+$('#signupGender').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b) setGender(b.dataset.g); });
+$('#signupAgree').addEventListener('change', (e) => {
+  if (e.target.matches('[data-all]')) agreeBoxes().forEach((c) => (c.checked = e.target.checked));
+  else $('#signupAgree [data-all]').checked = agreeBoxes().every((c) => c.checked);
 });
 $('#loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   if ($('#loginFields').classList.contains('hidden')) { showFields(); $('#loginEmail').focus(); return; }
   try {
-    const body = { email: $('#loginEmail').value, password: $('#loginPw').value };
-    const r = signupMode
-      ? await api('/api/auth/signup', { method: 'POST', body: { ...body, name: $('#signupName').value || '손님', role: 'consumer' } })
-      : await api('/api/auth/login', { method: 'POST', body });
+    const body = { email: $('#loginEmail').value.trim(), password: $('#loginPw').value };
+    let r;
+    if (signupMode) {
+      if (body.password !== $('#signupPw2').value) return toast('비밀번호가 서로 달라요');
+      if (![...document.querySelectorAll('#signupAgree [data-req]')].every((c) => c.checked)) return toast('필수 약관에 동의해 주세요');
+      r = await api('/api/auth/signup', { method: 'POST', body: {
+        ...body, role: 'consumer', name: $('#signupName').value.trim() || '손님', birthdate: $('#signupBirth').value || null,
+        gender: document.querySelector('#signupGender .on')?.dataset.g || null, phone: $('#signupPhone').value.trim() || null } });
+    } else {
+      r = await api('/api/auth/login', { method: 'POST', body });
+    }
     if (r.user.role !== 'consumer') return toast('손님 계정으로 로그인해 주세요 (사장님은 사장님 화면 이용)');
-    TOKEN = r.access_token; ls('consumerToken', TOKEN);
-    start();
+    TOKEN = r.access_token; ls('consumerToken', TOKEN); ls('lastEmail', body.email);
+    const isNew = signupMode;
+    if (signupMode) $('#toggleSignup').click();  // 다음에 로그아웃하면 로그인 화면으로
+    await start();
+    if (isNew) openTaste(true);  // 가입 직후 바로 입맛 설정
   } catch (err) { toast(err.message); }
 });
 function logout() { TOKEN = null; ls('consumerToken', null); stopQr(); clearInterval(S.linkTimer); $('#appView').classList.add('hidden'); $('#loginView').classList.remove('hidden'); }
@@ -170,7 +196,7 @@ async function renderHomeReco() {
   const q = `?lat=${loc.lat}&lng=${loc.lng}&limit=4`;
   const [p, beh, stores] = await Promise.all([api('/api/me/taste-profile'), api('/api/me/behavior'), api('/api/me/recommendations/stores' + q)]);
   const el = $('#homeReco'); if (!el || S.view !== 'home') return;
-  const meter = (label, v) => v == null ? '' : `<div class="meter"><span style="width:34px">${label}</span><div class="bar"><i style="width:${(v / 5) * 100}%"></i></div><span>${v}</span></div>`;
+  const meter = (label, v) => v == null ? '' : `<div class="meter"><span style="width:62px">${label}</span><div class="bar"><i style="width:${(v / 5) * 100}%"></i></div><span>${v}</span></div>`;
   const hour = new Date().getHours();
   const slotNow = hour < 5 || hour >= 21 ? '야식' : hour < 10 ? '아침' : hour < 15 ? '점심' : hour < 17 ? '오후' : '저녁';
   const maxSlot = Math.max(1, ...beh.slots.map((x) => x.count));
@@ -205,8 +231,11 @@ async function renderHomeReco() {
     <div class="section-title">AI가 분석한 내 입맛</div>
     <div class="card profile">
       <p>${esc(p.summary)}</p>
-      ${meter('맵기', p.spicy_preference)}${meter('단맛', p.sweet_preference)}
-      <div style="margin-top:10px">${[...p.favorite_categories, ...p.favorite_menus.slice(0, 3)].map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>
+      ${Object.keys(p.taste_tolerance || {}).length  // 직접 설정한 '잘 먹는 정도' 5가지 (없으면 주문 기록 기반 맵기·단맛)
+        ? Object.entries(p.taste_tolerance).map(([k, v]) => meter(k, v)).join('')
+        : meter('맵기', p.spicy_preference) + meter('단맛', p.sweet_preference)}
+      <div style="margin-top:10px">${[...(p.allergies || []).map((a) => '⚠ ' + a), ...(p.diet || []), ...p.favorite_categories, ...p.favorite_menus.slice(0, 3)]
+        .map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>
     </div>`;
   hydrateCounters(el);
 }
@@ -530,7 +559,7 @@ const mItem = (id, ic, label) => `<button class="menu-item" data-m="${id}"><span
 async function renderMe() {
   $('#screen').innerHTML = `
     <div class="prof"><span class="avatar">${esc((ME.name || '손')[0])}</span><div><b>${esc(ME.name)}</b><small>${esc(ME.email)}</small></div></div>
-    <div class="menu-box">${mItem('taste', 'food', '선호 음식 설정하기')}</div>
+    <div class="menu-box">${mItem('taste', 'food', '내 입맛 설정하기')}</div>
     <div class="menu-box">${mItem('settings', 'gear', '일반설정')}${mItem('notify', 'bell', '알림')}</div>
     <div class="menu-box">${mItem('orders', 'list', '주문 내역')}${mItem('tips', 'tip', '팁과 사용 설명서')}${mItem('about', 'info', '앱 정보')}</div>
     <button class="ghost-pill" id="logout">로그아웃</button>`;
@@ -540,20 +569,56 @@ async function renderMe() {
     ({ taste: openTaste, orders: openOrders, settings: openSettings, notify: openNotify, tips: openTips, about: openAbout })[m]();
   };
 }
-function openTaste() {
+// ===== 입맛 설정 (가입 직후 + 내 정보 › 선호 음식 설정하기) =====
+const TASTES = [['spicy', '매운맛', '🌶'], ['salty', '짠맛', '🧂'], ['sour', '신맛', '🍋'], ['sweet', '단맛', '🍯'], ['oily', '느끼한 맛', '🧈']];
+const LEVEL_TXT = ['전혀 못 먹어요', '조금만 먹어요', '약간 먹어요', '보통이에요', '잘 먹어요', '아주 잘 먹어요'];
+// 값은 메뉴의 알레르기 표기와 같은 단어 (추천에서 걸러냄)
+const ALLERGY_CHIPS = [['땅콩', '땅콩'], ['갑각류', '갑각류(새우·게)'], ['조개', '조개'], ['생선', '생선'], ['우유', '우유'],
+  ['계란', '계란'], ['밀', '밀'], ['대두', '대두'], ['돼지고기', '돼지고기'], ['소고기', '소고기']];
+const DIET_CHIPS = ['채식', '비건', '할랄', '저염', '저당', '다이어트'];
+function openTaste(onboarding = false) {
   const p = ME.preferences || {};
-  openSheet(`<h2>선호 음식 설정</h2><p class="muted" style="margin-top:0">설정하면 키오스크 AI 직원과 가게 추천이 더 정확해져요</p>
-    <div class="slider-row"><label><span>맵기</span><b id="spV">${p.spicy ?? '-'}</b></label><input type="range" min="0" max="5" id="sp" value="${p.spicy ?? 2}"></div>
-    <div class="slider-row"><label><span>단맛</span><b id="swV">${p.sweet ?? '-'}</b></label><input type="range" min="0" max="5" id="sw" value="${p.sweet ?? 2}"></div>
-    <div class="form"><label>알레르기 (쉼표로 구분)<input id="allergy" value="${esc((p.allergies || []).join(', '))}" placeholder="예) 땅콩, 새우"></label>
-    <label>싫어하는 재료<input id="dislike" value="${esc((p.dislikes || []).join(', '))}" placeholder="예) 오이"></label>
-    <button class="mint-btn sm" id="savePref">저장</button></div>`);
-  $('#sp').oninput = (e) => ($('#spV').textContent = e.target.value);
-  $('#sw').oninput = (e) => ($('#swV').textContent = e.target.value);
-  const list = (v) => v.split(',').map((x) => x.trim()).filter(Boolean);
-  $('#savePref').onclick = async () => {
-    ME = await api('/api/auth/me/preferences', { method: 'PUT', body: { spicy: +$('#sp').value, sweet: +$('#sw').value, allergies: list($('#allergy').value), dislikes: list($('#dislike').value) } });
-    closeSheet(); toast('저장했어요');
+  const chips = (id, items, chosen) => `<div class="pick-chips" id="${id}">${items.map(([v, label]) =>
+    `<button type="button" data-v="${esc(v)}" class="${chosen.includes(v) ? 'on' : ''}">${esc(label)}</button>`).join('')}</div>`;
+  const known = ALLERGY_CHIPS.map(([v]) => v);
+  const extraAllergy = (p.allergies || []).filter((a) => !known.includes(a));  // 특이사항 글에서 뽑힌 것 등
+  openSheet(`<div class="taste">
+    ${onboarding ? `<h2>반가워요, ${esc(ME.name)}님!</h2><p class="muted lead">입맛을 알려주시면 키오스크 AI 직원이 기억하고 챙겨드려요</p>`
+      : `<h2>내 입맛 설정</h2><p class="muted lead">키오스크 AI 직원과 가게 추천이 이걸 보고 골라드려요</p>`}
+    <h3>얼마나 잘 드세요?</h3>
+    ${TASTES.map(([k, label, ic]) => `<div class="t-row"><div class="t-head"><span>${ic} ${label}</span><b id="tv-${k}">${LEVEL_TXT[p[k] ?? 3]}</b></div>
+      <input type="range" min="0" max="5" step="1" data-taste="${k}" value="${p[k] ?? 3}" style="--v:${(p[k] ?? 3) * 20}%"></div>`).join('')}
+    <h3>알레르기 <small>있는 것만 눌러주세요</small></h3>
+    ${chips('allergyChips', ALLERGY_CHIPS, p.allergies || [])}
+    ${extraAllergy.length ? `<p class="muted tiny">특이사항에서 찾은 알레르기: ${esc(extraAllergy.join(', '))}</p>` : ''}
+    <h3>식단</h3>
+    ${chips('dietChips', DIET_CHIPS.map((d) => [d, d]), p.diet || [])}
+    <h3>이런 거 좋아요</h3>
+    <textarea id="likesText" rows="2" maxlength="500" placeholder="예) 꾸덕한 크림 파스타, 새우 들어간 요리 좋아해요">${esc(p.likes_text || '')}</textarea>
+    <h3>이런 거 싫어요</h3>
+    <textarea id="dislikesText" rows="2" maxlength="500" placeholder="예) 오이랑 고수는 못 먹어요. 너무 단 소스는 별로예요">${esc(p.dislikes_text || '')}</textarea>
+    <h3>특이사항</h3>
+    <textarea id="notesText" rows="2" maxlength="500" placeholder="예) 임신 중이라 날음식은 피해요 · 아이와 자주 와요 · 교정 중이라 딱딱한 건 힘들어요">${esc(p.notes || '')}</textarea>
+    <button class="mint-btn" id="savePref">${onboarding ? '이대로 시작하기' : '저장하기'}</button>
+    ${onboarding ? '<button class="link-sm skip" data-close>나중에 할게요</button>' : ''}
+  </div>`);
+  $('#sheetBody').oninput = (e) => {
+    const k = e.target.dataset.taste; if (!k) return;
+    $('#tv-' + k).textContent = LEVEL_TXT[+e.target.value]; e.target.style.setProperty('--v', e.target.value * 20 + '%');
+  };
+  $('#sheetBody').onclick = async (e) => {
+    const chip = e.target.closest('.pick-chips [data-v]');
+    if (chip) return chip.classList.toggle('on');
+    if (!e.target.closest('#savePref')) return;
+    const picked = (id) => [...document.querySelectorAll(`#${id} .on`)].map((b) => b.dataset.v);
+    const body = { allergies: [...picked('allergyChips'), ...extraAllergy], diet: picked('dietChips'),
+      likes_text: $('#likesText').value.trim(), dislikes_text: $('#dislikesText').value.trim(), notes: $('#notesText').value.trim() };
+    document.querySelectorAll('[data-taste]').forEach((r) => (body[r.dataset.taste] = +r.value));
+    const btn = $('#savePref'); btn.disabled = true; btn.textContent = 'AI가 입맛을 정리하는 중…';
+    try {
+      ME = await api('/api/auth/me/preferences', { method: 'PUT', body });
+      closeSheet(); toast('입맛을 저장했어요'); if (S.view === 'home') go('home');
+    } catch (err) { toast(err.message); btn.disabled = false; btn.textContent = '다시 저장하기'; }
   };
 }
 async function openOrders() {
@@ -590,7 +655,7 @@ function openAbout() {
 
 // ===== 시트 =====
 let onSheetClose = null;
-function openSheet(html, onClose) { $('#sheetBody').innerHTML = html; $('#sheet').classList.remove('hidden'); onSheetClose = onClose || null; }
+function openSheet(html, onClose) { const b = $('#sheetBody'); b.onclick = b.oninput = null; b.innerHTML = html; $('#sheet').classList.remove('hidden'); onSheetClose = onClose || null; }
 function closeSheet() { $('#sheet').classList.add('hidden'); const f = onSheetClose; onSheetClose = null; f && f(); }
 $('#sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet' || e.target.closest('[data-close]')) closeSheet(); });
 

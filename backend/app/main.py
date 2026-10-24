@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from .config import BASE_DIR, settings
 from .database import Base, SessionLocal, engine, get_db
-from .models import PAY_TYPE_LABELS, User
+from .models import PAY_TYPE_LABELS, Role, User
 from .routers import auth, consumer, kiosk, map, owner, stores
 from .seed import seed
 from .services import llm, stt
@@ -78,8 +78,10 @@ def demo_qr(email: str = "user@demo.com", db: Session = Depends(get_db)):
     if not settings.DEMO_MODE:
         raise HTTPException(404)
     user = db.query(User).filter_by(email=email).first()
+    if user is None:  # 시연용 초기화(손님 0명)에서 직접 가입한 경우 → 가장 최근에 가입한 손님
+        user = db.query(User).filter_by(role=Role.CONSUMER.value).order_by(User.id.desc()).first()
     if user is None:
-        raise HTTPException(404, "데모 손님 계정이 없습니다.")
+        raise HTTPException(404, "손님 계정이 없어요. 손님 앱에서 먼저 회원가입해 주세요.")
     t = issue_qr_token(db, user, None, True)
     return {"qr_payload": QR_PREFIX + t.token, "name": user.name}
 

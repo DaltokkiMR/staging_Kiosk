@@ -113,39 +113,116 @@ def taste_profile(db: Session, user: User) -> dict:
         "often_requests_less_spicy": less_spicy_option >= 2,
         "dislikes": prefs.get("dislikes", []),
         "allergies": prefs.get("allergies", []),
+        # 손님이 직접 설정한 취향 (AI 직원·추천이 그대로 참고)
+        "taste_tolerance": {TASTE_LABELS[k]: prefs[k] for k in TASTE_LABELS if prefs.get(k) is not None},
+        "taste_tolerance_scale": "0 전혀 못 먹어요 ~ 5 아주 잘 먹어요",
+        "likes": prefs.get("likes", []),
+        "likes_text": prefs.get("likes_text", ""),
+        "dislikes_text": prefs.get("dislikes_text", ""),
+        "notes": prefs.get("notes", ""),
+        "diet": prefs.get("diet", []),
     }
+    if prefs.get("spicy") is not None:
+        profile["max_spicy"] = prefs["spicy"]  # 잘 먹는 정도보다 매운 메뉴는 뒤로
     profile["summary"] = _profile_summary(profile)
     return profile
 
 
+TASTE_LABELS = {"spicy": "매운맛", "salty": "짠맛", "sour": "신맛", "sweet": "단맛", "oily": "느끼한 맛"}
+# 식단 → 피해야 하는 재료 (메뉴의 알레르기·이름·설명에서 찾음)
+DIET_AVOID = {
+    "채식": ["돼지고기", "소고기", "닭", "생선", "갑각류", "새우", "베이컨", "참치", "고기", "관찰레", "삼겹"],
+    "비건": ["돼지고기", "소고기", "닭", "생선", "갑각류", "새우", "베이컨", "참치", "고기", "관찰레", "삼겹",
+            "우유", "계란", "크림", "치즈", "버터"],
+    "할랄": ["돼지고기", "베이컨", "관찰레", "삼겹"],
+}
+
+
+def _has_taste_input(p: dict) -> bool:
+    return bool(p.get("taste_tolerance") or p.get("likes_text") or p.get("dislikes_text") or p.get("notes")
+                or p.get("allergies") or p.get("diet"))
+
+
 def _profile_summary(p: dict) -> str:
-    if p["order_item_count"] == 0 and p["spicy_preference"] is None:
+    if p["order_item_count"] == 0 and p["spicy_preference"] is None and not _has_taste_input(p):
         return "아직 주문 기록이 없어요. 몇 번 주문하면 입맛을 알려드릴게요!"
     ai = llm.complete(
-        "너는 음식 취향 분석가야. 손님의 주문 데이터를 보고 친근한 한국어 2문장으로 입맛을 요약해.",
+        "너는 음식 취향 분석가야. 손님이 직접 적은 취향(taste_tolerance: 0 전혀 못 먹음~5 아주 잘 먹음, 좋아하는 것, 싫어하는 것, "
+        "특이사항, 식단, 알레르기)과 주문 데이터를 보고 친근한 한국어 2문장으로 입맛을 요약해. 알레르기·특이사항은 꼭 짚어줘.",
         [{"role": "user", "content": json.dumps(p, ensure_ascii=False)}], max_tokens=200,
     )
     if ai:
         return ai.strip()
-    spicy = p["spicy_preference"]
-    sweet = p["sweet_preference"]
+    tol = p.get("taste_tolerance") or {}
     s = []
-    if spicy is not None:
-        s.append("매운 음식을 즐기는" if spicy >= 3 else "순한 맛을 좋아하는" if spicy <= 1 else "적당히 매운 걸 좋아하는")
-    if sweet is not None:
-        s.append("단 음식 좋아하는" if sweet >= 3 else "달지 않은 음식 선호하는")
-    head = ", ".join(s) + " 입맛이에요." if s else "다양하게 드시는 입맛이에요."
+    if tol:  # 직접 설정한 '잘 먹는 정도': 4 이상 잘 먹음, 1 이하 잘 못 먹음
+        strong = [k for k, v in tol.items() if v >= 4]
+        weak = [k for k, v in tol.items() if v <= 1]
+        if strong:
+            s.append(f"{'·'.join(strong)}은 잘 드시고")
+        if weak:
+            s.append(f"{'·'.join(weak)}은 힘들어하시는")
+        head = " ".join(s) + " 입맛이에요." if s else "대부분의 맛을 무난하게 드시는 입맛이에요."
+    else:
+        spicy, sweet = p["spicy_preference"], p["sweet_preference"]
+        if spicy is not None:
+            s.append("매운 음식을 즐기는" if spicy >= 3 else "순한 맛을 좋아하는" if spicy <= 1 else "적당히 매운 걸 좋아하는")
+        if sweet is not None:
+            s.append("단 음식 좋아하는" if sweet >= 3 else "달지 않은 음식 선호하는")
+        head = ", ".join(s) + " 입맛이에요." if s else "다양하게 드시는 입맛이에요."
+    if p.get("likes"):
+        head += f" {', '.join(p['likes'][:3])}을(를) 좋아하세요."
     if p["favorite_categories"]:
         head += f" 특히 {', '.join(p['favorite_categories'])} 메뉴를 자주 드셨어요."
+    if p.get("allergies"):
+        head += f" {', '.join(p['allergies'])} 알레르기는 꼭 피해서 추천할게요."
     return head
+
+
+def extract_taste_keywords(likes_text: str, dislikes_text: str, notes: str) -> dict:
+    """손님이 줄글로 쓴 취향에서 재료·메뉴 단어를 뽑아 규칙 기반 메뉴 추천에도 쓰이게 함.
+    → {"likes": [...], "dislikes": [...], "allergies": [...]}"""
+    if not (likes_text or dislikes_text or notes):
+        return {"likes": [], "dislikes": [], "allergies": []}
+    ai = llm.complete_json(
+        "손님이 쓴 음식 취향 글에서 재료·음식 이름만 짧은 명사로 뽑아. 예: '오이랑 고수는 못 먹어요' → dislikes ['오이', '고수']. "
+        "notes(특이사항)에 알레르기가 있으면 allergies 에, 못 먹는다는 재료는 dislikes 에 넣어. "
+        '출력: {"likes": [], "dislikes": [], "allergies": []}',
+        [{"role": "user", "content": json.dumps({"likes_text": likes_text, "dislikes_text": dislikes_text, "notes": notes},
+                                                ensure_ascii=False)}], max_tokens=300)
+    if ai:
+        clean = lambda xs: [str(x).strip() for x in (xs or []) if str(x).strip()][:15]
+        return {"likes": clean(ai.get("likes")), "dislikes": clean(ai.get("dislikes")), "allergies": clean(ai.get("allergies"))}
+    # LLM 없을 때: 쉼표·줄바꿈으로 나누고 뒤에 붙은 말 떼기 ('오이 싫어요' → '오이')
+    ending = re.compile(r"(\s*(좋아요|좋아해요|싫어요|싫어해요|별로예요|못 먹어요|안 먹어요|잘 먹어요|들어간 거|들어간|이요|요))+$")
+    particle = re.compile(r"(을|를|은|는|이|가|도)$")  # 조사는 하나만, 남는 말이 두 글자 이상일 때만 ('오이'는 그대로)
+
+    def word(x: str) -> str:
+        w = ending.sub("", x.strip())
+        return w[:-1] if particle.search(w) and len(w) > 2 else w
+    parts = lambda t: re.split(r"[,.\n/·、]|\s+(?:그리고|및)\s+|(?<=\S)(?:이랑|랑|하고)\s+", t or "")
+    split = lambda t: [w for w in map(word, parts(t)) if 0 < len(w) <= 12]
+    allergies = [a for a in ALLERGEN_WORDS if a in (notes or "")]
+    return {"likes": split(likes_text)[:15], "dislikes": split(dislikes_text)[:15], "allergies": allergies}
+
+
+SIDE_CATEGORIES = {"음료", "디저트", "커피", "사이드", "에피타이저"}
 
 
 def score_menu(m: MenuItem, profile: dict) -> float:
     score = 0.0
-    if profile.get("spicy_preference") is not None:
+    tol = profile.get("taste_tolerance") or {}
+    # 손님이 직접 정한 '잘 먹는 정도'는 상한선: 그보다 센 메뉴만 감점 / 정하지 않았으면 주문 기록의 평균에 가까울수록 가점
+    if "매운맛" in tol:
+        score -= max(0, m.spicy_level - min(tol["매운맛"], profile.get("max_spicy", 5))) * 1.5
+    elif profile.get("spicy_preference") is not None:
         score -= abs(m.spicy_level - profile["spicy_preference"]) * 1.0
-    if profile.get("sweet_preference") is not None:
+    if "단맛" in tol:
+        score -= max(0, m.sweetness - tol["단맛"]) * 0.8
+    elif profile.get("sweet_preference") is not None:
         score -= abs(m.sweetness - profile["sweet_preference"]) * 0.6
+    if m.category in SIDE_CATEGORIES:
+        score -= 1.0  # 첫 추천은 식사 메뉴 위주 (카페처럼 전부 음료면 순위에 영향 없음)
     if m.category in profile.get("favorite_categories", []):
         score += 1.5
     score += sum(0.5 for t in m.tags if t in profile.get("favorite_tags", []))
@@ -153,7 +230,12 @@ def score_menu(m: MenuItem, profile: dict) -> float:
         score += 1.0
     if profile.get("max_spicy") is not None and m.spicy_level > profile["max_spicy"]:
         score -= 5
-    for bad in profile.get("allergies", []) + profile.get("dislikes", []):
+    text = f"{m.name} {m.description} {' '.join(m.tags)}"
+    for good in profile.get("likes", []):  # '크림 파스타'가 통째로 없으면 단어별로 조금씩
+        score += 1.0 if good in text else 0.4 * sum(1 for w in good.split() if len(w) >= 2 and w in text)
+    avoid = profile.get("allergies", []) + profile.get("dislikes", [])
+    avoid += [w for d in profile.get("diet", []) for w in DIET_AVOID.get(d, [])]
+    for bad in avoid:
         if bad in m.allergens or bad in m.name or bad in m.description:
             score -= 100
     return score
@@ -199,7 +281,7 @@ def apply_memory(profile: dict | None, mem: dict | None) -> dict:
         return p
     p["allergies"] = list(dict.fromkeys((p.get("allergies") or []) + mem["mentioned_allergies"]))
     if mem["wants_less_spicy"]:
-        p["max_spicy"] = 2  # 지난번에 덜 맵게 원했음 → 많이 매운 메뉴는 뒤로
+        p["max_spicy"] = min(p.get("max_spicy", 2), 2)  # 지난번에 덜 맵게 원했음 → 많이 매운 메뉴는 뒤로
         p["spicy_preference"] = min(p.get("spicy_preference") if p.get("spicy_preference") is not None else 1, 1)
     if mem["wants_less_sweet"]:
         p["sweet_preference"] = min(p.get("sweet_preference") if p.get("sweet_preference") is not None else 1, 1)
@@ -208,17 +290,25 @@ def apply_memory(profile: dict | None, mem: dict | None) -> dict:
 
 def welcome_message(user: User, store: Store, mem: dict, recs: list[MenuItem], method_label: str | None) -> str:
     """앱 QR을 찍자마자 보여줄 인사 (지난 대화·주문 기반)."""
-    payload = {"name": user.name, "store": store.name, "memory": mem, "recommend": [m.name for m in recs],
-               "pay": method_label}
+    prefs = user.preferences or {}
+    taste = {k: prefs[k] for k in ("allergies", "diet", "likes_text", "dislikes_text", "notes") if prefs.get(k)}
+    taste.update({TASTE_LABELS[k]: prefs[k] for k in TASTE_LABELS if prefs.get(k) is not None})
+    payload = {"name": user.name, "store": store.name, "memory": mem, "my_taste_settings": taste,
+               "recommend": [m.name for m in recs], "pay": method_label}
     ai = llm.complete(
         "너는 식당 키오스크의 AI 직원이야. 단골을 기억하는 사장님처럼 손님에게 첫 인사를 해. "
-        "지난 대화·주문 기억을 자연스럽게 한 가지만 언급하고 오늘 메뉴를 하나 권해. 2문장, 소리로 읽기 좋게, 괄호·이모지 없이.",
+        "지난 대화·주문 기억이 있으면 한 가지만, 처음 온 손님이면 앱에 설정한 취향(my_taste_settings, 0 전혀 못 먹음~5 아주 잘 먹음)에서 "
+        "알레르기·특이사항·싫어하는 것 중 가장 중요한 한 가지를 자연스럽게 언급하고 그에 맞는 오늘 메뉴를 하나 권해. "
+        "2문장, 소리로 읽기 좋게, 괄호·이모지 없이.",
         [{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}], max_tokens=150)
     if ai:
         return ai.strip()
     usual = mem["usual_items"]
     if not usual and not mem["past_questions"]:
         msg = f"{user.name}님, {store.name}에 처음 오셨네요! 반가워요."
+        avoid = (prefs.get("allergies") or []) + (prefs.get("dislikes") or [])
+        if avoid:
+            msg += f" 앱에 적어주신 대로 {', '.join(avoid[:3])} 들어간 메뉴는 빼고 골라봤어요."
         return msg + (f" 오늘은 {recs[0].name} 어떠세요?" if recs else "")
     msg = f"{user.name}님, 또 오셨네요!"
     if usual:
@@ -329,7 +419,9 @@ def kiosk_chat(db: Session, store: Store, session_id: str, message: str, user: U
         f"[손님 성향] {json.dumps(profile, ensure_ascii=False) if profile else '알 수 없음(비회원)'}\n"
         f"[이 가게 단골 메뉴] {json.dumps(usual, ensure_ascii=False)}\n"
         f"[이 손님이 이 가게에서 예전에 한 대화·주문] {json.dumps(mem, ensure_ascii=False) if mem else '없음'}\n"
-        "예전 대화에서 말한 알레르기·맵기 취향은 기억하고 반영해.\n\n"
+        "예전 대화에서 말한 알레르기·맵기 취향은 기억하고 반영해. "
+        "손님 성향의 allergies·diet·notes(특이사항)·dislikes_text 는 반드시 지키고, "
+        "taste_tolerance(0 전혀 못 먹음~5 아주 잘 먹음)보다 센 맛은 권하지 마.\n\n"
         '출력 형식: {"reply": "손님에게 할 말", "recommended_menu_ids": [메뉴 id], '
         '"unmet_requests": ["손님이 원했지만 가게에 없는 옵션/메뉴를 짧은 명사구로. 예: 맵기 조절, 곱빼기. 없으면 빈 배열"], '
         '"actions": [{"type": "add_to_cart", "menu_item_id": 메뉴id, "quantity": 수량} 또는 {"type": "checkout"}. 없으면 빈 배열], '

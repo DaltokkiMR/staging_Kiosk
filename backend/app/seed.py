@@ -130,6 +130,19 @@ def _last(weekday_set: set[int], n: int, start: int = 1) -> list[int]:
     return out
 
 
+def add_demo_wallet(db: Session, user: User) -> None:
+    """데모 결제수단: 카카오페이(잔액 5,000) → 마포사랑상품권 → 신한카드 → 온누리 순서.
+    22,000원 주문 시 카카오페이 잔액부족 → 지역화폐로 넘어가는 흐름을 보여줄 수 있음."""
+    db.add_all([
+        PaymentMethod(user_id=user.id, pay_type=PayType.KAKAO_PAY.value, display_name="카카오페이머니", mock_balance=5000, priority=1),
+        PaymentMethod(user_id=user.id, pay_type=PayType.LOCAL_CURRENCY.value, display_name="마포사랑상품권",
+                      region="서울 마포구", mock_balance=30000, priority=2),
+        PaymentMethod(user_id=user.id, pay_type=PayType.CREDIT_CARD.value, display_name="신한카드",
+                      masked_number="****-1234", billing_key="demo-billing-key", priority=3),
+        PaymentMethod(user_id=user.id, pay_type=PayType.ONNURI.value, display_name="모바일 온누리", mock_balance=20000, priority=4),
+    ])
+
+
 def seed(db: Session) -> None:
     if db.query(User).first():
         return
@@ -138,9 +151,12 @@ def seed(db: Session) -> None:
 
     owner = User(email="owner@demo.com", password_hash=pw, name="김사장", role=Role.OWNER.value, preferences={})
     owner2 = User(email="owner2@demo.com", password_hash=pw, name="박사장", role=Role.OWNER.value, preferences={})
-    user = User(email="user@demo.com", password_hash=pw, name="김민지", role=Role.CONSUMER.value,
-                preferences={"allergies": ["땅콩"]})
-    db.add_all([owner, owner2, user])
+    db.add_all([owner, owner2])
+    user = None
+    if settings.SEED_CUSTOMER:
+        user = User(email="user@demo.com", password_hash=pw, name="김민지", role=Role.CONSUMER.value,
+                    preferences={"allergies": ["땅콩"]})
+        db.add(user)
     db.flush()
 
     # ---------- 가게 ----------
@@ -203,16 +219,10 @@ def seed(db: Session) -> None:
     db.add(Kiosk(store_id=store.id, name="1번 테이블", table_no="1", api_key="demo-kiosk-key"))
     db.add(Kiosk(store_id=store2.id, name="분식 키오스크", api_key="demo-kiosk-key-2"))
 
-    db.add_all([
-        PaymentMethod(user_id=user.id, pay_type=PayType.KAKAO_PAY.value, display_name="카카오페이머니", mock_balance=5000, priority=1),
-        PaymentMethod(user_id=user.id, pay_type=PayType.LOCAL_CURRENCY.value, display_name="마포사랑상품권",
-                      region="서울 마포구", mock_balance=30000, priority=2),
-        PaymentMethod(user_id=user.id, pay_type=PayType.CREDIT_CARD.value, display_name="신한카드",
-                      masked_number="****-1234", billing_key="demo-billing-key", priority=3),
-        PaymentMethod(user_id=user.id, pay_type=PayType.ONNURI.value, display_name="모바일 온누리", mock_balance=20000, priority=4),
-    ])
+    if user:
+        add_demo_wallet(db, user)
 
-    if not settings.SEED_HISTORY:
+    if not settings.SEED_HISTORY or user is None:
         # 기록 없이 시작: 매출·주문·대화·포인트가 하나도 없는 상태
         db.commit()
         return

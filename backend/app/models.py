@@ -54,7 +54,12 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(20), default=Role.CONSUMER.value)
-    # 소비자 입맛 설정 (선택): {"spicy": 0~5, "sweet": 0~5, "dislikes": [...], "allergies": [...]}
+    birthdate: Mapped[str | None] = mapped_column(String(10), nullable=True)  # YYYY-MM-DD
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # 소비자 입맛 설정 (선택)
+    # 얼마나 잘 먹는지 0~5: spicy, salty, sour, sweet, oily / 직접 쓴 글: likes_text, dislikes_text, notes
+    # 고른 것: allergies, diet / 글에서 뽑은 재료: likes, dislikes
     preferences: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
