@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>UNIORDER 테이블오더</title>
+  <link rel="stylesheet" href="/shared/fonts/fonts.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="lib/html5-qrcode.min.js" defer></script>
+  <script src="lib/qrcode.js" defer></script>
+  <script src="/shared/fx/flux-lines.js" defer></script>
+  <script src="/shared/fx/counter.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<div class="stage" id="stage">
+  <!-- 움직이는 등고선 배경 (첫 화면들 공통) -->
+  <div class="flux-bg" id="fluxBg"></div>
+
+  <!-- ① 스플래시: 광고 + 결제수단 로고 흐름 -->
+  <section class="full splash" id="splash">
+    <div class="logo md splash-logo"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></div>
+    <div class="ad-stage" id="adStage"></div>
+    <div class="ad-dots" id="adDots"></div>
+    <p class="touch" data-i18n="touch">화면을 터치해 주세요</p>
+    <div class="logo-loop" id="logoLoop"></div>
+  </section>
+
+  <!-- ② 환영: 매장에서 식사 / 테이크아웃 / AI로 주문하기 -->
+  <section class="full welcome hidden" id="welcome">
+    <div class="logo lg"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></div>
+    <h1 class="welcome-title">WELCOME TO <span id="welcomeStore"></span></h1>
+    <div class="tiles">
+      <button class="tile" data-mode="dine_in"><img src="img/tile-dinein.png" alt=""><span data-i18n="dineIn">매장에서 식사</span></button>
+      <button class="tile" data-mode="takeout"><img src="img/tile-takeout.png" alt=""><span data-i18n="takeout">테이크아웃</span></button>
+      <button class="tile ai" data-mode="ai"><img src="img/tile-ai.png" alt=""><span data-i18n="aiOrder">AI로 주문하기</span></button>
+    </div>
+    <button class="lang-btn" id="langBtn">English</button>
+  </section>
+
+  <!-- ③ 앱이 있으신가요? — 키오스크가 QR을 띄우고 손님 앱이 찍음 -->
+  <section class="full start hidden" id="start">
+    <div class="logo lg start-logo"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></div>
+    <button class="back-btn" id="startBack" data-i18n="back">← 처음으로</button>
+    <div class="start-ask" id="startAsk">
+      <div class="pair-box">
+        <div class="pair-qr" id="pairQr"><span class="pair-loading">QR 준비 중…</span></div>
+        <div class="pair-timer" id="pairTimer"></div>
+        <button class="pair-demo hidden" id="startDemo" data-i18n="demoQr">데모 손님으로 연결</button>
+      </div>
+      <div class="ask-side">
+        <h1 data-i18n="haveApp">앱이 있으신가요?</h1>
+        <p data-i18n="haveAppSub">앱을 열어 유니오더 카메라에 QR코드를 찍어주세요</p>
+        <a class="app-dl" id="appDl" data-i18n="appDl">앱 다운로드하기</a>
+        <button class="no-btn" id="startNo" data-i18n="no">없습니다</button>
+      </div>
+    </div>
+    <div class="start-welcome hidden" id="startWelcome"></div>
+  </section>
+
+  <!-- ④ 메뉴 화면 -->
+  <div class="app" id="app">
+    <header class="hd">
+      <button class="logo md" id="btnHome" title="처음으로"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></button>
+      <label class="search">
+        <input id="search" placeholder="원하는 음식을 찾아보세요..." autocomplete="off" data-i18n-ph="searchPh">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#3a3a3a" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </label>
+      <div id="customerBanner" class="customer hidden"></div>
+    </header>
+
+    <nav class="side">
+      <button class="side-ai" id="btnVoice">
+        <img src="img/side-ai.png" alt="">
+        <span data-i18n="aiOrder">AI로 주문하기</span>
+      </button>
+      <div class="cats" id="cats"></div>
+    </nav>
+
+    <main class="content">
+      <h2 class="cat-title" id="catTitle">메뉴</h2>
+      <div class="grid" id="menuGrid"></div>
+    </main>
+
+    <aside class="cart">
+      <div class="cart-head">
+        <span class="cart-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span>
+        <div class="cart-title"><b data-i18n="foodOrder">음식 주문</b><small id="orderMeta"></small></div>
+        <button class="icon-btn" id="btnClear" title="전체 비우기"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#555" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <button class="icon-btn" id="btnSettings" title="기기 설정"><svg viewBox="0 0 24 24" width="22" height="22" fill="#555"><circle cx="12" cy="6" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="18" r="2"/></svg></button>
+      </div>
+      <ul class="cart-list" id="cartList"></ul>
+      <div class="cart-empty" id="cartEmpty" data-i18n="cartEmpty">메뉴를 눌러 담아주세요</div>
+      <div class="cart-foot">
+        <div class="order-bar">
+          <div><small><span data-i18n="count">주문 수</span>: <span id="cartCount">0</span></small><b id="cartTotal">0 ₩</b></div>
+          <button id="btnOrder" disabled data-i18n="order">주문</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- AI 직원 대화 -->
+  <aside class="drawer" id="chatDrawer" aria-hidden="true">
+    <div class="drawer-head">
+      <img src="img/side-ai.png" alt="" class="drawer-ai">
+      <div>
+        <h2 data-i18n="aiStaff">AI 직원</h2>
+        <p data-i18n="aiStaffSub">맵기, 단맛, 알레르기, 추천… 편하게 물어보세요</p>
+      </div>
+      <button class="icon-btn" data-close="chatDrawer">✕</button>
+    </div>
+    <div class="chat-log" id="chatLog"></div>
+    <!-- 프롬프트 바 (React Bits Prompt Bar + Voice Pill 변형) -->
+    <div class="pbar" id="pbar">
+      <div class="vstatus hidden" id="voicePill"><span class="rec-dot"></span><b id="voiceLabel">듣고 있어요…</b><button type="button" class="vbtn" id="voiceDone" data-i18n="end">종료</button></div>
+      <div class="pb-menu hidden" id="pbMenu"><span class="pb-glow" id="pbGlow"></span><div id="pbRows"></div></div>
+      <form class="pb-field" id="chatForm" autocomplete="off">
+        <textarea id="chatText" rows="1" placeholder="말하거나 글자로 입력하세요" data-i18n-ph="chatPh"></textarea>
+        <div class="pb-bar">
+          <button type="button" class="pb-tool" id="pbSlash" title="빠른 질문"><b>/</b><span data-i18n="quick">빠른 질문</span></button>
+          <button type="button" class="pb-pick" id="pbTts" title="음성으로 답하기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span id="pbTtsLabel">음성 답변</span></button>
+          <span class="pb-spacer"></span>
+          <button type="button" class="vpill" id="micBtn" data-state="idle" aria-label="말로 주문하기">
+            <span class="vp-capsule"></span>
+            <canvas class="vp-wave" id="vpWave"></canvas>
+            <span class="vp-time" id="vpTime">0:00</span>
+            <span class="vp-glyph"><svg class="vp-mic" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><i class="vp-stop"></i></span>
+          </button>
+          <button class="pb-send" id="pbSend" aria-label="보내기" disabled><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        </div>
+      </form>
+    </div>
+  </aside>
+
+  <div class="modal-wrap hidden" id="modal"><div class="modal" id="modalBody"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+</body>
+</html>

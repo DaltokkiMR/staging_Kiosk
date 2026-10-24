@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UNIORDER 사장님</title>
+  <link rel="stylesheet" href="/shared/fonts/fonts.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <section id="loginView" class="login hidden">
+    <form id="loginForm" class="login-card">
+      <span class="logo">도</span>
+      <h1>사장님 로그인</h1>
+      <p>매출, 손님 의견, 메뉴를 한 곳에서</p>
+      <input id="email" type="email" value="owner@demo.com" placeholder="이메일" required>
+      <input id="pw" type="password" value="1234" placeholder="비밀번호" required>
+      <button class="btn primary big">로그인</button>
+    </form>
+  </section>
+
+  <div id="appView" class="shell hidden">
+    <aside class="side">
+      <div class="side-brand"><span class="logo">도</span><div><b>UNIORDER 사장님</b><small id="ownerName"></small></div></div>
+      <select id="storeSelect" class="store-select"></select>
+      <nav id="nav">
+        <button data-view="dashboard">📊 매출</button>
+        <button data-view="insights">✦ AI 손님 의견</button>
+        <button data-view="menus">🍲 메뉴 관리</button>
+        <button data-view="orders">🧾 주문 <span class="badge-count hidden" id="pendingCount"></span></button>
+        <button data-view="settings">⚙ 가게 설정</button>
+      </nav>
+      <button class="side-logout" id="logout">로그아웃</button>
+    </aside>
+    <main class="main">
+      <header class="main-head"><h1 id="viewTitle"></h1><div id="headActions"></div></header>
+      <div id="screen"></div>
+    </main>
+  </div>
+
+  <div class="modal-wrap hidden" id="modal"><div class="modal" id="modalBody"></div></div>
+  <div class="toast" id="toast"></div>
+</body>
+</html>

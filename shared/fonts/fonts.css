@@ -1,0 +1,7 @@
+/* UNIORDER 공통 글꼴 (오프라인에서도 동작하도록 로컬 포함) */
+@import url("wanted/WantedSansVariable.css");
+@font-face { font-family: "Poppins"; font-weight: 400; font-display: swap; src: url("poppins/poppins-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-weight: 500; font-display: swap; src: url("poppins/poppins-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-weight: 600; font-display: swap; src: url("poppins/poppins-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("poppins/poppins-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-weight: 800; font-display: swap; src: url("poppins/poppins-latin-800-normal.woff2") format("woff2"); }
