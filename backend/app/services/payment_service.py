@@ -34,7 +34,7 @@ def ordered_methods(db: Session, user_id: int) -> list[PaymentMethod]:
     )
 
 
-# ---------- 유니 포인트 ----------
+# ---------- 포인트 ----------
 def get_wallet(db: Session, user_id: int, store_id: int, create: bool = True) -> PointWallet | None:
     wallet = db.query(PointWallet).filter_by(user_id=user_id, store_id=store_id).first()
     if wallet is None and create:
@@ -102,12 +102,12 @@ def pay_order(db: Session, order: Order, store: Store, user_id: int, method_id: 
     points_used = 0
     supported = set(store.supported_pay_types or [])
 
-    # 1) 유니 포인트 우선 차감 (가게 전용 포인트)
+    # 1) 포인트 우선 차감 (가게 전용 포인트)
     wallet = get_wallet(db, user_id, store.id)
     if use_points and method_id is None and PayType.DODO_POINT.value in supported and wallet.balance > 0:
         points_used = min(wallet.balance, remaining)
         remaining -= points_used
-        attempts.append({"pay_type": PayType.DODO_POINT.value, "label": "유니 포인트", "amount": points_used,
+        attempts.append({"pay_type": PayType.DODO_POINT.value, "label": "포인트", "amount": points_used,
                          "success": True, "message": f"{points_used:,}P 사용"})
 
     # 2) 남은 금액은 (지정 카드 또는) 우선순위 순서대로 시도
@@ -154,7 +154,7 @@ def pay_order(db: Session, order: Order, store: Store, user_id: int, method_id: 
         change_points(db, wallet, -points_used, "use", order.id)
         p = Payment(order_id=order.id, user_id=user_id, method_id=None, pay_type=PayType.DODO_POINT.value,
                     amount=points_used, status="approved", approval_no=f"PT-{secrets.token_hex(5).upper()}",
-                    message="유니 포인트 사용")
+                    message="포인트 사용")
         db.add(p)
         approved.insert(0, p)
 
@@ -166,7 +166,7 @@ def pay_order(db: Session, order: Order, store: Store, user_id: int, method_id: 
     db.commit()
     return {"success": True, "order_id": order.id, "paid_amount": order.total_amount, "points_used": points_used,
             "points_earned": earned, "payments": approved, "attempts": attempts,
-            "message": f"결제 완료! 유니 포인트 {earned:,}P 적립"}
+            "message": f"결제 완료! 포인트 {earned:,}P 적립"}
 
 
 def _earn(db: Session, wallet: PointWallet | None, store: Store, order: Order, cash_paid: int) -> int:
@@ -207,4 +207,4 @@ def pay_order_with_card(db: Session, order: Order, store: Store, user_id: int | 
                  "success": True, "message": "승인"}]
     return {"success": True, "order_id": order.id, "paid_amount": order.total_amount, "points_used": 0,
             "points_earned": earned, "payments": [p], "attempts": attempts,
-            "message": "결제 완료!" + (f" 유니 포인트 {earned:,}P 적립" if earned else "")}
+            "message": "결제 완료!" + (f" 포인트 {earned:,}P 적립" if earned else "")}

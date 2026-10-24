@@ -48,7 +48,7 @@ const typeLabel = (t) => PAY_TYPES.find((p) => p.value === t)?.label || t;
 // ===== 로그인 (시안: 처음엔 문구 + 로그인하기, 누르면 입력칸이 열림) =====
 let signupMode = false;
 // 시연용: 회원가입 칸을 미리 채워둠 (취향은 가입 후 직접 설정)
-const SIGNUP_DEMO = { name: '김민지', birth: '2003-05-14', gender: '여', phone: '010-1234-5678', email: 'minji@uniorder.kr', pw: '1234' };
+const SIGNUP_DEMO = { name: '김디미', birth: '2003-05-14', gender: '여', phone: '010-1234-5678', email: 'dimi@uniorder.kr', pw: '1234' };
 const showFields = () => $('#loginFields').classList.remove('hidden');
 const setGender = (g) => document.querySelectorAll('#signupGender [data-g]').forEach((b) => b.classList.toggle('on', b.dataset.g === g));
 const agreeBoxes = () => [...document.querySelectorAll('#signupAgree input:not([data-all])')];
@@ -169,7 +169,7 @@ async function renderHome() {
           <span><b>${esc(m.display_name)}</b><small>${i === 0 ? m.sub : esc(typeLabel(m.pay_type)) + ' ' + esc(m.masked_number || '')}</small></span></button>`;
       }).join('')}
     </div>
-    <div class="pt-row" id="pointToggle"><span>유니 포인트 먼저 사용</span><span class="switch ${S.usePoints ? 'on' : ''}"></span></div>
+    <div class="pt-row" id="pointToggle"><span>포인트 먼저 사용</span><span class="switch ${S.usePoints ? 'on' : ''}"></span></div>
     <div id="homeReco"><p class="muted">추천을 불러오는 중…</p></div>`;
   $('#screen').onclick = (e) => {
     if (e.target.closest('#qrBox')) return openCardPicker();
@@ -498,7 +498,7 @@ async function renderWallet() {
     <div class="gray-card">
       ${points.map((p) => `<div class="pt-item"><span class="won">₩</span>
         <span><b>${esc(p.store_name)}</b><small>${(p.total_spent || 0).toLocaleString()}원 결제 · <span class="pt-bal">잔액 ${p.balance.toLocaleString()}P</span></small></span>
-        <span class="pt-pill">+${(p.last_earned || 0).toLocaleString()}Points</span></div>`).join('') || '<p class="muted" style="padding:10px">아직 적립된 포인트가 없어요. 유니오더 가맹점에서 결제하면 그 가게 포인트가 쌓여요.</p>'}
+        <span class="pt-pill">+${(p.last_earned || 0).toLocaleString()} 포인트</span></div>`).join('') || '<p class="muted" style="padding:10px">아직 적립된 포인트가 없어요. 유니오더 가맹점에서 결제하면 그 가게 포인트가 쌓여요.</p>'}
     </div>
     <div class="w-title">결제</div>
     <div class="gray-card">
@@ -631,7 +631,7 @@ async function openOrders() {
 const toggleRow = (k, label, sub) => `<div class="pt-row" data-tg="${k}"><span>${label}<br><small class="muted">${sub}</small></span><span class="switch ${ls(k) !== '0' ? 'on' : ''}"></span></div>`;
 function bindToggles() { $('#sheetBody').onclick = (e) => { const r = e.target.closest('[data-tg]'); if (!r) return; const on = ls(r.dataset.tg) === '0'; ls(r.dataset.tg, on ? '1' : '0'); r.querySelector('.switch').classList.toggle('on', on); }; }
 function openSettings() {
-  openSheet(`<h2>일반설정</h2>${toggleRow('set_points', '유니 포인트 먼저 사용', '결제할 때 그 가게 포인트를 먼저 차감')}${toggleRow('set_loc', '위치 사용', '내 주변 가맹점 추천에 사용')}
+  openSheet(`<h2>일반설정</h2>${toggleRow('set_points', '포인트 먼저 사용', '결제할 때 그 가게 포인트를 먼저 차감')}${toggleRow('set_loc', '위치 사용', '내 주변 가맹점 추천에 사용')}
     <button class="ghost-pill" data-close style="margin-top:14px">닫기</button>`, () => { S.usePoints = ls('set_points') !== '0'; });
   bindToggles();
 }

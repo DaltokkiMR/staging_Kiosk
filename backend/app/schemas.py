@@ -71,6 +71,7 @@ class StoreIn(BaseModel):
     lng: float | None = None
     phone: str | None = None
     tagline: str | None = None
+    notice: str | None = Field(None, max_length=1000)
     image_url: str | None = None
     open_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
     close_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
@@ -92,6 +93,7 @@ class StoreUpdate(BaseModel):
     lng: float | None = None
     phone: str | None = None
     tagline: str | None = None
+    notice: str | None = Field(None, max_length=1000)
     image_url: str | None = None
     open_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
     close_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
@@ -114,6 +116,7 @@ class StoreOut(ORM):
     lng: float | None
     phone: str
     tagline: str
+    notice: str = ""
     image_url: str
     open_time: str
     close_time: str
@@ -262,7 +265,7 @@ class PriorityIn(BaseModel):
 
 class QRTokenIn(BaseModel):
     method_id: int | None = Field(None, description="특정 카드로 결제할 때만 지정. 없으면 우선순위대로 결제")
-    use_points: bool = Field(True, description="유니 포인트를 먼저 차감할지")
+    use_points: bool = Field(True, description="포인트를 먼저 차감할지")
 
 
 class QRTokenOut(BaseModel):

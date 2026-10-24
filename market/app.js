@@ -56,7 +56,7 @@ async function start() {
 function renderStoreSelect() {
   $('#storeSelect').innerHTML = S.stores.map((s) => `<option value="${s.id}" ${s.id === S.storeId ? 'selected' : ''}>${esc(s.name)}</option>`).join('') || '<option>가게 없음</option>';
 }
-$('#storeSelect').addEventListener('change', (e) => { S.storeId = +e.target.value; ls('ownerStore', S.storeId); go(S.view); refreshPending(); });
+$('#storeSelect').addEventListener('change', (e) => { S.storeId = +e.target.value; ls('ownerStore', S.storeId); S.reqNew = 0; $('#reqCount').classList.add('hidden'); go(S.view); refreshPending(); });
 
 // ===== 화면 전환 =====
 const VIEWS = {
@@ -66,6 +66,7 @@ const VIEWS = {
 $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) go(b.dataset.view); });
 function go(view) {
   S.view = view;
+  if (view === 'insights') { S.reqNew = 0; $('#reqCount').classList.add('hidden'); }
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $('#viewTitle').textContent = VIEWS[view][0];
   $('#headActions').innerHTML = '';
@@ -77,12 +78,37 @@ function go(view) {
 
 async function refreshPending() {
   if (!S.storeId || !TOKEN) return;
+  refreshRequests();
   try {
     const list = await api(`/api/owner/stores/${S.storeId}/orders?status=paid`);
     const el = $('#pendingCount');
     el.textContent = list.length; el.classList.toggle('hidden', !list.length);
     if (S.view === 'orders' && !document.querySelector('#modal:not(.hidden)')) renderOrders(true);
   } catch {}
+}
+
+// 손님이 키오스크 AI에게 찾았지만 가게에 없던 것 (유아 메뉴 등) → 오른쪽 위 알림 + 'AI 손님 의견' 배지
+async function refreshRequests() {
+  const store = S.storeId;
+  try {
+    const after = S.reqAfter?.[store];  // 처음엔 기준점만 받아옴 (그 전 요청은 알림 안 함)
+    const r = await api(`/api/owner/stores/${store}/requests` + (after === undefined ? '' : `?after_id=${after}`));
+    if (store !== S.storeId) return;
+    S.reqAfter = { ...S.reqAfter, [store]: r.last_id };
+    if (!r.items.length) return;
+    S.reqNew = (S.reqNew || 0) + r.items.length;
+    r.items.forEach((it) => notify(`손님이 ‘${it.requests.join(', ')}’을(를) 찾았어요`, it.content));
+    if (S.view === 'insights') { S.reqNew = 0; renderInsights(); }
+    const b = $('#reqCount'); b.textContent = S.reqNew; b.classList.toggle('hidden', !S.reqNew);
+  } catch {}
+}
+function notify(title, quote) {
+  const el = document.createElement('button');
+  el.className = 'req-alert';
+  el.innerHTML = `<span class="ic">🔔</span><span><b>${esc(title)}</b><small>“${esc(quote)}”</small><em>AI 손님 의견에서 보기 ›</em></span>`;
+  el.onclick = () => { el.remove(); go('insights'); };
+  $('#alerts').appendChild(el);
+  setTimeout(() => el.classList.add('out'), 9000); setTimeout(() => el.remove(), 9500);
 }
 
 // ===== 매출 =====
@@ -162,7 +188,7 @@ const OPTION_PRESETS = {
   '양 조절(곱빼기 등)': ['양', ['곱빼기']],
   '재료 빼기': ['재료', ['빼기 요청']],
   '포장': ['포장', ['포장']],
-  '아이용 메뉴': ['맵기', ['아이용(안 맵게)']],
+  '유아·어린이 메뉴': ['유아', ['아이용(안 맵게)', '면 잘라주기']],
 };
 
 async function openAddOption(menuId, request) {
@@ -285,8 +311,10 @@ async function renderSettings() {
         <form class="form" id="storeForm">
           <div class="row"><label>가게 이름<input name="name" value="${esc(store.name)}"></label><label>분류<input name="category" value="${esc(store.category)}"></label></div>
           <label>소개 (AI 직원이 참고해요)<textarea name="description" rows="2">${esc(store.description)}</textarea></label>
+          <label>매장 안내 <small class="muted">유아 의자·앞접시·주차·와이파이 등. 손님이 키오스크 AI에게 물어보면 이걸 보고 답해요</small>
+            <textarea name="notice" rows="4" maxlength="1000" placeholder="예) 유아 전용 메뉴는 없지만 아기용 앞접시와 포크를 드려요. 유아 의자 2개 있어요. 주차는 건물 뒤 2대 가능해요.">${esc(store.notice || '')}</textarea></label>
           <div class="row"><label>주소<input name="address" value="${esc(store.address)}"></label><label>지역 (지역화폐 판단용)<input name="region" value="${esc(store.region)}" placeholder="예) 서울 마포구"></label></div>
-          <label>유니 포인트 적립률 (%)<input name="point_rate" type="number" step="0.5" min="0" max="50" value="${(store.point_rate * 100).toFixed(1)}"></label>
+          <label>포인트 적립률 (%)<input name="point_rate" type="number" step="0.5" min="0" max="50" value="${(store.point_rate * 100).toFixed(1)}"></label>
           <fieldset class="disc-set"><legend>할인 행사 <small class="muted">${store.discount ? `진행 중 · ${store.discount.rate}%` : '없음'}</small></legend>
             <div class="row"><label>할인율 (%)<input name="discount_rate" type="number" min="0" max="90" value="${store.discount ? store.discount_rate : 0}"></label>
             <label>끝나는 시각<input name="discount_until" type="datetime-local" value="${store.discount_until ? store.discount_until.slice(0, 16) : ''}"></label></div>
@@ -309,7 +337,7 @@ async function renderSettings() {
     e.preventDefault();
     const fd = new FormData(e.target), f = Object.fromEntries(fd);
     await api('/api/owner/stores/' + S.storeId, { method: 'PATCH', body: {
-      name: f.name, category: f.category, description: f.description, address: f.address, region: f.region,
+      name: f.name, category: f.category, description: f.description, notice: f.notice || '', address: f.address, region: f.region,
       point_rate: (+f.point_rate || 0) / 100, supported_pay_types: fd.getAll('pay'),
       discount_rate: +f.discount_rate || 0, discount_title: f.discount_title || '', ...(f.discount_until ? { discount_until: f.discount_until } : {}) } });
     S.stores = await api('/api/owner/stores'); renderStoreSelect(); toast('저장했어요');

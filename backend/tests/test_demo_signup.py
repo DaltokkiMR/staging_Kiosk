@@ -68,3 +68,30 @@ def test_signup_then_taste_then_kiosk():
             full = menus[m["id"]]
             assert "토마토" not in full["name"] and not {"갑각류", "우유"} & set(full["allergens"])
             assert full["spicy_level"] <= 1
+
+
+def test_kid_question_uses_store_notice_and_alerts_owner():
+    with TestClient(app) as c:
+        tok = c.post("/api/auth/login", json={"email": "owner@demo.com", "password": "1234"}).json()["access_token"]
+        O = {"Authorization": f"Bearer {tok}"}
+        rolling = next(s for s in c.get("/api/owner/stores", headers=O).json() if s["name"] == "RollingPasta")
+        assert "앞접시" in rolling["notice"]
+        base = c.get(f"/api/owner/stores/{rolling['id']}/requests", headers=O).json()["last_id"]
+
+        # '아이스티'는 아이 메뉴 요청이 아님
+        r = c.post("/api/kiosk/ai/chat", headers=K, json={"session_id": "kid-1", "message": "아이스티 있어요?"}).json()
+        assert "유아·어린이 메뉴" not in r["unmet_requests"]
+
+        r = c.post("/api/kiosk/ai/chat", headers=K, json={"session_id": "kid-1", "message": "유아 음식 있나요?"}).json()
+        assert "앞접시" in r["reply"] and r["unmet_requests"] == ["유아·어린이 메뉴"]
+        assert all(m["spicy_level"] == 0 for m in r["recommended_menus"])
+        assert [m["name"] for m in r["recommended_menus"]][:2] == ["버터 갈릭 파스타", "까르보나라"]  # 매장 안내에 적힌 메뉴 먼저
+
+        # 사장님: 실시간 알림 + AI 손님 의견
+        new = c.get(f"/api/owner/stores/{rolling['id']}/requests?after_id={base}", headers=O).json()["items"]
+        assert [i["content"] for i in new] == ["유아 음식 있나요?"]
+        # 깨끗한 DB(대화 0건)에서는 기준점이 0 → after_id=0 도 '처음'이 아니라 새 요청을 돌려줘야 함
+        since_zero = c.get(f"/api/owner/stores/{rolling['id']}/requests?after_id=0", headers=O).json()["items"]
+        assert "유아 음식 있나요?" in [i["content"] for i in since_zero]
+        ins = c.get(f"/api/owner/stores/{rolling['id']}/insights", headers=O).json()
+        assert any(u["request"] == "유아·어린이 메뉴" for u in ins["unmet_requests"])

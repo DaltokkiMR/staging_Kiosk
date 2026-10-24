@@ -1,4 +1,4 @@
-"""소비자 앱: 결제수단 관리, 결제 QR, 유니 포인트, 주문내역, 성향/추천."""
+"""소비자 앱: 결제수단 관리, 결제 QR, 포인트, 주문내역, 성향/추천."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -97,10 +97,10 @@ def pair_with_kiosk(data: PairIn, user: User = Depends(require_consumer), db: Se
     return claim_pairing(db, data.qr_payload, user, data.method_id, data.use_points)
 
 
-# ---------- 유니 포인트 ----------
+# ---------- 포인트 ----------
 @router.get("/points", response_model=list[PointWalletOut])
 def my_points(user: User = Depends(require_consumer), db: Session = Depends(get_db)):
-    """가게별 유니 포인트 + 그 가게에서 쓴 돈 + 최근 적립."""
+    """가게별 포인트 + 그 가게에서 쓴 돈 + 최근 적립."""
     rows = db.query(PointWallet, Store).join(Store, Store.id == PointWallet.store_id).filter(
         PointWallet.user_id == user.id).all()
     out = []

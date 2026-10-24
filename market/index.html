@@ -27,7 +27,7 @@
       <select id="storeSelect" class="store-select"></select>
       <nav id="nav">
         <button data-view="dashboard">📊 매출</button>
-        <button data-view="insights">✦ AI 손님 의견</button>
+        <button data-view="insights">✦ AI 손님 의견 <span class="badge-count hidden" id="reqCount"></span></button>
         <button data-view="menus">🍲 메뉴 관리</button>
         <button data-view="orders">🧾 주문 <span class="badge-count hidden" id="pendingCount"></span></button>
         <button data-view="settings">⚙ 가게 설정</button>
@@ -42,5 +42,6 @@
 
   <div class="modal-wrap hidden" id="modal"><div class="modal" id="modalBody"></div></div>
   <div class="toast" id="toast"></div>
+  <div class="alerts" id="alerts"></div>
 </body>
 </html>

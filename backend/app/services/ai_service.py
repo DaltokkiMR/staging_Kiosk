@@ -17,7 +17,15 @@ REQUEST_CATALOG: dict[str, tuple[list[str], list[str]]] = {
     "재료 빼기": (["빼주", "빼고", "빼 주", "없이 해", "넣지 말"], ["빼"]),
     "채식/비건 메뉴": (["비건", "채식", "고기 없", "베지"], ["비건", "채식"]),
     "포장": (["포장", "테이크아웃", "가져갈"], ["포장"]),
-    "아이용 메뉴": (["아이", "어린이", "애기", "키즈"], ["어린이", "키즈", "아이"]),
+    "유아·어린이 메뉴": (["아이", "어린이", "애기", "아기", "유아", "키즈"], ["어린이", "키즈", "아이용", "유아"]),
+}
+# 가게 시설·서비스 질문 → 사장님이 적은 매장 안내(store.notice)에서 관련 문장을 찾아 답함 (LLM 없을 때)
+NOTICE_TOPICS = {
+    "유아": ["유아", "아이", "아기", "애기", "어린이", "키즈", "앞접시"],
+    "주차": ["주차", "차 대", "차를"],
+    "와이파이": ["와이파이", "wifi", "WiFi", "인터넷"],
+    "화장실": ["화장실"],
+    "리필": ["리필"],
 }
 
 ALLERGEN_WORDS = ["땅콩", "새우", "갑각류", "우유", "유제품", "계란", "달걀", "밀", "글루텐", "대두", "콩", "견과", "조개", "생선", "돼지고기", "소고기"]
@@ -40,13 +48,39 @@ def store_option_keywords(store: Store) -> str:
     return " ".join(parts)
 
 
+def _strip_false_hits(text: str) -> str:
+    return text.replace("아이스", "")  # '아이스티'의 '아이'를 아이 메뉴로 오해하지 않게
+
+
 def detect_unmet_requests(store: Store, text: str) -> list[str]:
     available = store_option_keywords(store)
+    text = _strip_false_hits(text)
     unmet = []
     for name, (phrases, option_keys) in REQUEST_CATALOG.items():
         if any(p in text for p in phrases) and not any(k in available for k in option_keys):
             unmet.append(name)
     return unmet
+
+
+def normalize_unmet(items: list[str]) -> list[str]:
+    """AI가 자유롭게 쓴 요청 이름('유아 메뉴', '어린이 메뉴'…)을 같은 이름으로 묶어 사장님 통계가 쪼개지지 않게."""
+    out = []
+    for it in items:
+        name = next((n for n, (phrases, _) in REQUEST_CATALOG.items() if any(ph in _strip_false_hits(it) for ph in phrases)), it)
+        if name not in out:
+            out.append(name)
+    return out
+
+
+def notice_answer(store: Store, msg: str) -> tuple[list[str], list[str]]:
+    """매장 안내에서 질문과 관련된 문장 → (주제들, 문장들)"""
+    msg = _strip_false_hits(msg)
+    topics = [t for t, words in NOTICE_TOPICS.items() if any(w in msg for w in words)]
+    if not topics or not store.notice:
+        return topics, []
+    sentences = [x.strip() for x in re.split(r"(?<=[.!?요])\s+", store.notice) if x.strip()]
+    hits = [x for x in sentences if any(w in x for t in topics for w in NOTICE_TOPICS[t])]
+    return topics, hits
 
 
 def usual_items(db: Session, user_id: int, store_id: int, limit: int = 3) -> list[dict]:
@@ -415,10 +449,14 @@ def kiosk_chat(db: Session, store: Store, session_id: str, message: str, user: U
            if spoken else "\n")
         +
         f"[가게 설명] {store.description}\n"
+        f"[매장 안내 (사장님이 적은 시설·서비스 정보)] {store.notice or '없음'}\n"
         f"[메뉴] {json.dumps([menu_to_dict(m) for m in menus], ensure_ascii=False)}\n"
         f"[손님 성향] {json.dumps(profile, ensure_ascii=False) if profile else '알 수 없음(비회원)'}\n"
         f"[이 가게 단골 메뉴] {json.dumps(usual, ensure_ascii=False)}\n"
         f"[이 손님이 이 가게에서 예전에 한 대화·주문] {json.dumps(mem, ensure_ascii=False) if mem else '없음'}\n"
+        "유아 의자·앞접시·주차·와이파이 같은 가게 시설·서비스 질문은 [매장 안내]에 근거해서만 답해. "
+        "손님이 찾는 메뉴·서비스가 없으면(예: 유아 메뉴) 매장 안내에 있는 대안(맵지 않은 메뉴, 앞접시 등)을 함께 알려주고 "
+        "unmet_requests 에 넣어(사장님께 전달돼).\n"
         "예전 대화에서 말한 알레르기·맵기 취향은 기억하고 반영해. "
         "손님 성향의 allergies·diet·notes(특이사항)·dislikes_text 는 반드시 지키고, "
         "taste_tolerance(0 전혀 못 먹음~5 아주 잘 먹음)보다 센 맛은 권하지 마.\n\n"
@@ -450,7 +488,7 @@ def kiosk_chat(db: Session, store: Store, session_id: str, message: str, user: U
 
     valid_ids = {m.id for m in menus}
     rec_ids = [i for i in result.get("recommended_menu_ids", []) if i in valid_ids][:3]
-    unmet = list(dict.fromkeys((result.get("unmet_requests") or []) + detect_unmet_requests(store, message)))
+    unmet = normalize_unmet((result.get("unmet_requests") or []) + detect_unmet_requests(store, message))
     reply = result.get("reply") or "죄송해요, 다시 한 번 말씀해 주시겠어요?"
     actions = []
     for a in result.get("actions") or []:
@@ -479,14 +517,22 @@ def _rule_based_chat(store: Store, msg: str, profile: dict | None, usual: list[d
     option_hits = [(m, o) for m in pool for o in m.options if o.name in msg or (len(o.group) >= 2 and o.group in msg)]
 
     unmet = detect_unmet_requests(store, msg)
-    if option_hits:
+    topics, notice_lines = notice_answer(store, msg)
+    if notice_lines:
+        reply = " ".join(notice_lines)
+        if "유아" in topics:
+            # 매장 안내에 적힌 메뉴(예: '버터 갈릭 파스타는 맵지 않아요') 먼저, 그다음 안 매운 식사 메뉴
+            picks = sorted(pool, key=lambda m: (m.name not in store.notice, m.spicy_level, m.category in SIDE_CATEGORIES))[:3]
+        if unmet:
+            reply += " 찾으시는 건 사장님께 꼭 전달할게요!"
+    elif option_hits:
         picks = list(dict.fromkeys(m for m, _ in option_hits))[:3]
         reply = "네, 가능해요! " + ", ".join(
             f"{m.name}은(는) '{o.name}'" + (f"(+{o.extra_price:,}원)" if o.extra_price else "") for m, o in option_hits[:3]
         ) + " 선택하실 수 있어요."
     elif unmet:
         alt = ""
-        if "맵기 조절" in unmet or "아이용 메뉴" in unmet:
+        if "맵기 조절" in unmet or "유아·어린이 메뉴" in unmet:
             picks = sorted(pool, key=lambda m: m.spicy_level)[:3]
             alt = " 대신 덜 매운 " + ", ".join(f"{m.name}(맵기 {m.spicy_level})" for m in picks) + " 어떠세요?"
         elif "단맛 조절" in unmet:
@@ -542,10 +588,11 @@ def owner_insights(db: Session, store: Store, days: int = 30) -> dict:
 
     topics = Counter()
     topic_words = {"맵기": ["맵", "매운", "매워"], "단맛": ["달", "단맛"], "알레르기/성분": ALLERGEN_WORDS,
+                   "유아·어린이": NOTICE_TOPICS["유아"], "시설(주차·와이파이 등)": NOTICE_TOPICS["주차"] + NOTICE_TOPICS["와이파이"] + NOTICE_TOPICS["화장실"],
                    "추천 요청": ["추천", "뭐가 맛", "인기"], "양": ["양", "곱빼기"], "가격": ["얼마", "가격", "싸"]}
     for log in logs:
         for topic, words in topic_words.items():
-            if any(w in log.content for w in words):
+            if any(w in _strip_false_hits(log.content) for w in words):
                 topics[topic] += 1
 
     unmet_list = [{"request": r, "count": c, "examples": examples[r]} for r, c in unmet.most_common()]

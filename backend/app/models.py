@@ -25,7 +25,7 @@ class PayType(str, Enum):
     KAKAO_PAY = "kakao_pay"            # 카카오페이
     LOCAL_CURRENCY = "local_currency"  # 지역화폐
     ONNURI = "onnuri"                  # 온누리상품권
-    DODO_POINT = "dodo_point"          # 가게 전용 유니 포인트
+    DODO_POINT = "dodo_point"          # 가게 전용 포인트
 
 
 PAY_TYPE_LABELS = {
@@ -36,7 +36,7 @@ PAY_TYPE_LABELS = {
     PayType.KAKAO_PAY: "카카오페이",
     PayType.LOCAL_CURRENCY: "지역화폐",
     PayType.ONNURI: "온누리상품권",
-    PayType.DODO_POINT: "유니 포인트",
+    PayType.DODO_POINT: "포인트",
 }
 
 
@@ -74,12 +74,14 @@ class Store(Base):
     address: Mapped[str] = mapped_column(String(255), default="")
     region: Mapped[str] = mapped_column(String(50), default="")  # 지역화폐 사용 가능 지역 판단용
     supported_pay_types: Mapped[list] = mapped_column(JSON, default=lambda: [p.value for p in PayType])
-    point_rate: Mapped[float] = mapped_column(Float, default=0.03)  # 결제금액 대비 유니 포인트 적립률
+    point_rate: Mapped[float] = mapped_column(Float, default=0.03)  # 결제금액 대비 포인트 적립률
     # 지도 표시용
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     phone: Mapped[str] = mapped_column(String(30), default="")
     tagline: Mapped[str] = mapped_column(String(100), default="")  # 지도 핀에 보일 한 줄 소개
+    # 매장 안내: 유아 의자·앞접시·주차·와이파이 등. 키오스크 AI 직원이 손님 질문에 답할 때 참고
+    notice: Mapped[str] = mapped_column(Text, default="")
     image_url: Mapped[str] = mapped_column(String(500), default="")
     open_time: Mapped[str] = mapped_column(String(5), default="10:00")   # "HH:MM"
     close_time: Mapped[str] = mapped_column(String(5), default="21:00")  # 자정 넘기면 "02:00" 처럼
@@ -222,7 +224,7 @@ class Payment(Base):
 
 
 class PointWallet(Base):
-    """유니 포인트: 가게별로 따로 적립되고 그 가게에서만 사용 가능."""
+    """포인트: 가게별로 따로 적립되고 그 가게에서만 사용 가능."""
     __tablename__ = "point_wallets"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)

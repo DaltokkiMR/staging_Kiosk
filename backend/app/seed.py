@@ -71,6 +71,14 @@ def _menu(db, store, name, price, cat, spicy, sweet, desc="", tags=(), allergens
 
 IMG = "/kiosk/img/menu/"
 # 피그마 시안의 RollingPasta 메뉴판 (이름, 영문, 가격, 맵기, 단맛, 설명, 태그, 알레르기, 이미지)
+# 매장 안내 (사장님 › 가게 설정에서 수정). 키오스크 AI 직원이 "유아 음식 있나요?" 같은 질문에 이걸 보고 답함
+ROLLING_NOTICE = (
+    "유아 전용 메뉴는 아직 없어요. 대신 버터 갈릭 파스타와 까르보나라는 맵지 않아서 아이들이 잘 먹어요. "
+    "아기용 앞접시와 포크·숟가락을 드려요. 유아 의자 2개 있어요. 면은 가위로 짧게 잘라 드릴 수 있어요. "
+    "주차는 건물 뒤에 2대 가능해요. 와이파이 비밀번호는 rolling2024 예요. 화장실은 건물 2층에 있어요."
+)
+DODO_NOTICE = "아기 의자와 앞접시 있어요. 반찬은 셀프 리필이에요. 주차 공간은 없어요."
+
 ROLLING_PASTA = [
     ("버터 갈릭 파스타", "Butter Garlic Pasta", 10000, 0, 1, "버터와 마늘의 고소한 풍미를 그대로! 한 번 맛보면 자꾸 생각나는 매력적인 파스타", [], ["밀", "우유"], "butter_garlic"),
     ("치즈 듬뿍 오븐 파스타", "Oven-baked Pasta", 12000, 1, 1, "진한 비프 토마토 소스에 고소한 치즈를 듬뿍 올려 오븐에 구워낸 겉바속촉 오븐파스타", [], ["밀", "우유", "소고기"], "oven_baked"),
@@ -163,6 +171,7 @@ def seed(db: Session) -> None:
     store = Store(owner_id=owner.id, name="도도식당", category="한식", region="서울 마포구",
                   address="서울 마포구 망원로 12", phone="02-321-0001", tagline="엄마 손맛 찌개 백반",
                   description="엄마 손맛 한식 백반집. 찌개와 볶음 요리가 대표 메뉴.",
+                  notice=DODO_NOTICE,
                   lat=37.5556, lng=126.9095, open_time="10:30", close_time="21:00", closed_weekdays=[6],
                   supported_pay_types=ALL_PAY, point_rate=0.05)
     store2 = Store(owner_id=owner.id, name="도도분식", category="분식", region="서울 마포구",
@@ -202,6 +211,7 @@ def seed(db: Session) -> None:
                     address="서울 마포구 망원로 30", phone="02-321-0030", tagline="매일 생면으로 만드는 파스타",
                     description="롤링파스타. 오일·토마토·크림 파스타 전문점. 매콤 메뉴와 로제 크림 쉬림프가 인기.",
                     lat=37.5561, lng=126.9104, open_time="11:00", close_time="22:00",
+                    notice=ROLLING_NOTICE,
                     supported_pay_types=ALL_PAY, point_rate=0.05,
                     discount_rate=10, discount_title="오픈 기념 전 메뉴 10% 할인",
                     discount_until=(datetime.now() + timedelta(days=2)).replace(hour=22, minute=0, second=0, microsecond=0))
@@ -296,11 +306,11 @@ def seed(db: Session) -> None:
     for i, q in enumerate(["알리오 올리오 덜 맵게 되나요?", "매운 크림 파스타 맵기 조절 돼요?", "포장 되나요?",
                            "면 추가는 얼마예요?", "아이가 먹을 안 매운 파스타 있어요?", "스테이크 크림 덜 맵게 가능해요?"]):
         db.add(ChatLog(store_id=rolling.id, session_id=f"seed-rp-{i}", role="user", content=q,
-                       unmet_requests=[r for r, k in [("맵기 조절", "맵"), ("포장", "포장"), ("아이용 메뉴", "아이")] if k in q],
+                       unmet_requests=[r for r, k in [("맵기 조절", "맵"), ("포장", "포장"), ("유아·어린이 메뉴", "아이")] if k in q],
                        created_at=datetime.now() - timedelta(days=i)))
     for i, q in enumerate(["김치찌개 맵기 조절 되나요?", "덜 맵게 해주실 수 있어요?", "아이가 먹을 건데 김치찌개 안 맵게 가능해요?",
                            "제육 덜 맵게 되나요?", "포장 되나요?", "땅콩 들어간 메뉴 있어요?"]):
         db.add(ChatLog(store_id=store.id, session_id=f"seed-{i}", role="user", content=q,
-                       unmet_requests=[r for r, k in [("맵기 조절", "맵"), ("포장", "포장"), ("아이용 메뉴", "아이")] if k in q],
+                       unmet_requests=[r for r, k in [("맵기 조절", "맵"), ("포장", "포장"), ("유아·어린이 메뉴", "아이")] if k in q],
                        created_at=datetime.now() - timedelta(days=i)))
     db.commit()
