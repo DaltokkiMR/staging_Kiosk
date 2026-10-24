@@ -50,7 +50,10 @@
         <p data-i18n="haveAppSub">앱의 결제 QR코드를 카메라에 보여주세요</p>
         <small class="ask-note" data-i18n="haveAppNote">앱에서 고른 결제수단으로 결제까지 이어지고,<br>전에 드신 메뉴와 나눈 이야기를 기억해 추천해 드려요</small>
         <a class="app-dl" id="appDl" data-i18n="appDl">앱 다운로드하기</a>
-        <button class="no-btn" id="startNo" data-i18n="no">없습니다</button>
+        <div class="no-row">
+          <button class="no-btn" id="startNo" data-i18n="no">없습니다</button>
+          <button class="no-btn later" id="startLater" data-i18n="later">나중에 할게요</button>
+        </div>
         <div class="demo-row hidden" id="demoRow">
           <button class="pair-demo" id="startDemo" data-i18n="demoQr">데모 손님 QR</button>
           <input id="startManual" placeholder="QR 내용 직접 입력 (데모)"><button class="pair-demo" id="startManualGo">확인</button>

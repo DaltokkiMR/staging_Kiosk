@@ -33,7 +33,7 @@ const I18N = {
   en: {
     touch: 'Touch the screen to start', dineIn: 'Dine in', takeout: 'Take out', aiOrder: 'Order with AI', back: '← Home',
     haveApp: 'Do you have the app?', haveAppSub: 'Show the payment QR in the app to the camera', haveAppNote: 'Your chosen payment carries through, and we remember what you liked here.', appDl: 'Download the app',
-    ok: 'OK', demoQr: 'Demo QR', no: 'No', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
+    ok: 'OK', demoQr: 'Demo QR', no: 'No', later: 'Maybe later', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
     cartEmpty: 'Tap a menu to add it', count: 'Items', order: 'Order', aiStaff: 'AI Staff', aiStaffSub: 'Ask anything — spiciness, allergies, recommendations',
     chatPh: 'Speak or type', send: 'Send', end: 'End', menuTitle: 'Menu', quick: 'Quick',
   },
@@ -285,7 +285,8 @@ function renderCart() {
   $('#cartTotal').innerHTML = dc ? `<s class="was">${won(sum)}</s>${won(sum - dc)}` : won(sum);
   $('#btnOrder').disabled = !S.cart.length;
   const type = S.orderType === 'takeout' ? (S.lang === 'en' ? 'Take out' : '포장') : (S.lang === 'en' ? 'Dine in' : '매장 식사');
-  $('#orderMeta').textContent = `${type}${S.store?.name ? ' · ' + S.store.name : ''}${dc ? ` · ${S.store.discount.rate}% 할인 -${won(dc)}` : ''}`;
+  // 할인은 줄 중간에서 끊기지 않게 알약 하나로 묶어서 표시
+  $('#orderMeta').innerHTML = `${type}${S.store?.name ? ' · ' + esc(S.store.name) : ''}${dc ? ` <em class="meta-dc">${S.store.discount.rate}% ${S.lang === 'en' ? 'off' : '할인'} −${won(dc)}</em>` : ''}`;
 }
 $('#cartList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-q]'); if (!b) return;
@@ -383,7 +384,7 @@ async function stopStartScanner() {
   if (START_SCANNER) { const sc = START_SCANNER; START_SCANNER = null; try { await sc.stop(); } catch {} try { sc.clear(); } catch {} }
 }
 
-$('#startNo').addEventListener('click', async () => { await stopStartScanner(); beginVisit(null); });
+['#startNo', '#startLater'].forEach((id) => $(id).addEventListener('click', async () => { await stopStartScanner(); beginVisit(null); }));
 $('#appDl').addEventListener('click', () => toast(S.lang === 'en' ? 'Search "UNIORDER" in the app store' : '앱스토어에서 "유니오더"를 검색해 주세요'));
 $('#startDemo').addEventListener('click', async () => {
   try { const d = await api('/api/demo/qr', { method: 'POST' }); onStartQr(d.qr_payload); } catch (e) { toast(e.message); }
@@ -410,7 +411,7 @@ async function onStartQr(payload) {
 function renderWelcome(c) {
   const m = c.selected_method;
   $('#startWelcome').innerHTML = `
-    <div class="w-hello">${esc(c.name)}님</div>
+    <div class="w-hello">✓ ${S.lang === 'en' ? 'Connected to your app' : '앱과 연결됐어요'}</div>
     <p class="w-greet">${esc(c.greeting)}</p>
     <div class="w-chips">
       <span class="w-chip">💳 ${m ? `${esc(m.display_name)} ${esc(m.masked_number)}로 결제돼요` : '등록한 결제수단 순서대로 결제돼요'}</span>
