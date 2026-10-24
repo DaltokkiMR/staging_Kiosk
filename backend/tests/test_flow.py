@@ -26,6 +26,24 @@ def test_full_flow():
         user = login(c, "user@demo.com")
         owner = login(c, "owner@demo.com")
 
+        # 시간대 패턴 추천은 시드 데이터만으로 검증 (아래 키오스크 주문이 실제 현재 시각으로 찍혀 섞이지 않게 먼저 실행)
+        from datetime import datetime
+        from app.database import SessionLocal
+        from app.models import User as U
+        from app.services.recommend import recommend_stores
+        with SessionLocal() as db:
+            me = db.query(U).filter_by(email="user@demo.com").first()
+            names = lambda dt: [r["name"] for r in recommend_stores(db, me, limit=3, now=dt, with_ai_comment=False)]
+            lunch = names(datetime(2026, 10, 21, 12, 30))   # 수요일 점심
+            evening = names(datetime(2026, 10, 21, 19, 0))  # 수요일 저녁
+            weekend = names(datetime(2026, 10, 24, 15, 0))  # 토요일 오후
+            print("lunch", lunch, "evening", evening, "weekend", weekend)
+            assert lunch[0] == "도도식당"
+            assert "도도분식" in evening[:2]
+            assert "카페 소담" in weekend[:2]
+            all_ = recommend_stores(db, me, limit=20, now=datetime(2026, 10, 21, 12, 30), with_ai_comment=False)
+            assert any("비슷한 손님" in " ".join(r["reasons"]) for r in all_)
+
         menus = c.get("/api/kiosk/menus", headers=K).json()
         kimchi = next(m for m in menus if m["name"] == "김치찌개")
         jeyuk = next(m for m in menus if m["name"] == "제육볶음")
@@ -116,22 +134,6 @@ def test_full_flow():
         assert beh["visit_count"] >= 8 and beh["slots"] and beh["summary"]
         recs = c.get("/api/me/recommendations/stores", headers=user, params={"lat": 37.5555, "lng": 126.91}).json()
         assert recs and recs[0]["reasons"]
-        from datetime import datetime
-        from app.database import SessionLocal
-        from app.models import User as U
-        from app.services.recommend import recommend_stores
-        with SessionLocal() as db:
-            me = db.query(U).filter_by(email="user@demo.com").first()
-            names = lambda dt: [r["name"] for r in recommend_stores(db, me, limit=3, now=dt, with_ai_comment=False)]
-            lunch = names(datetime(2026, 10, 21, 12, 30))   # 수요일 점심
-            evening = names(datetime(2026, 10, 21, 19, 0))  # 수요일 저녁
-            weekend = names(datetime(2026, 10, 24, 15, 0))  # 토요일 오후
-            print("lunch", lunch, "evening", evening, "weekend", weekend)
-            assert lunch[0] == "도도식당"
-            assert "도도분식" in evening[:2]
-            assert "카페 소담" in weekend[:2]
-            all_ = recommend_stores(db, me, limit=20, now=datetime(2026, 10, 21, 12, 30), with_ai_comment=False)
-            assert any("비슷한 손님" in " ".join(r["reasons"]) for r in all_)
 
         # 권한 체크
         assert c.get("/api/owner/stores", headers=user).status_code == 403
