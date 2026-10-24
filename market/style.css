@@ -1,6 +1,6 @@
 :root {
   --bg: #F5F8F9; --surface: #FFFFFF; --ink: #111111; --muted: #6B7479; --line: #E3E9EC;
-  --brand: #00C499; --brand-dark: #009E7B; --brand-soft: #E3FBF4;
+  --brand: var(--mint-deep); --brand-dark: var(--mint-dark); --brand-soft: var(--mint-wash);
   --ai: #3B3A8F; --ai-soft: #E9E8F7;
   --ok: #2E8B57; --ok-soft: #E3F3EA; --warn: #B7791F; --warn-soft: #FBF0D9; --err: #C0392B; --err-soft: #F8E1DE;
   --side: #0E2E29;

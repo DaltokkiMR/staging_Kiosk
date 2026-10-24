@@ -32,8 +32,8 @@ $('#stage').addEventListener('scroll', (e) => { e.currentTarget.scrollLeft = 0; 
 const I18N = {
   en: {
     touch: 'Touch the screen to start', dineIn: 'Dine in', takeout: 'Take out', aiOrder: 'Order with AI', back: '← Home',
-    haveApp: 'Do you have the app?', haveAppSub: 'Open the app and scan this QR with the UNIORDER camera', appDl: 'Download the app',
-    ok: 'OK', demoQr: 'Connect demo guest', no: 'No', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
+    haveApp: 'Do you have the app?', haveAppSub: 'Show the payment QR in the app to the camera', haveAppNote: 'Your chosen payment carries through, and we remember what you liked here.', appDl: 'Download the app',
+    ok: 'OK', demoQr: 'Demo QR', no: 'No', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
     cartEmpty: 'Tap a menu to add it', count: 'Items', order: 'Order', aiStaff: 'AI Staff', aiStaffSub: 'Ask anything — spiciness, allergies, recommendations',
     chatPh: 'Speak or type', send: 'Send', end: 'End', menuTitle: 'Menu', quick: 'Quick',
   },
@@ -92,19 +92,6 @@ async function init() {
   showSplash();
 }
 
-// ===== 움직이는 등고선 배경 (React Bits Flux Lines 이식) =====
-let FLUX = null;
-function startFlux() {
-  if (!FLUX && window.UFX?.fluxLines) {
-    FLUX = UFX.fluxLines($('#fluxBg'), {
-      lightMode: false, colors: ['#00D7A8', '#5FD8F0', '#7FB2FF', '#00C499'], speed: 0.18, scale: 1.25,
-      turbulence: 0.8, rimWidth: 0.18, glow: 2, shimmer: 1.2, lineWidth: 1.4, opacity: 0.85, flowDirection: 'right',
-      mouseStrength: 1.2, mouseRadius: 0.3,
-    });
-  }
-  FLUX?.wake?.();
-}
-
 // ===== ① 스플래시: 광고 =====
 const AD = { i: 0, t: 0, list: [], timers: [] };
 function buildAds() {
@@ -125,11 +112,11 @@ function buildAds() {
       <div class="ad-count"><span>끝나기까지</span><span class="ufx-counter" data-count="${d.seconds_left}"></span></div></div>
       ${m2?.image_url ? `<img class="ad-img" src="${esc(m2.image_url)}" alt="">` : ''}</div>`);
   }
-  ads.push(`<div class="ad" style="--ad-bg:linear-gradient(120deg,#F8FFF5,#E4F8FF)"><div class="ad-copy"><span class="ad-kicker">📱 UNIORDER 앱</span>
+  ads.push(`<div class="ad" style="--ad-bg:linear-gradient(120deg,var(--mint-soft),#E4F8FF)"><div class="ad-copy"><span class="ad-kicker">📱 UNIORDER 앱</span>
       <h2>QR 한 번이면<br><em>늘 먹던 메뉴</em>까지</h2><p>앱으로 연결하면 고른 카드로 바로 결제되고<br>이 가게에서 드신 메뉴를 기억해 추천해 드려요</p>
       <div class="ad-price" style="font-size:30px">결제할 때마다 포인트 ${Math.round((st.point_rate || 0) * 100)}% 적립</div></div>
       <img class="ad-img" src="img/tile-dinein.png" alt="" style="width:400px;height:400px"></div>`);
-  ads.push(`<div class="ad" style="--ad-bg:linear-gradient(120deg,#EFFFFA,#F8FFF5)"><div class="ad-copy"><span class="ad-kicker">🎙 AI 직원</span>
+  ads.push(`<div class="ad" style="--ad-bg:linear-gradient(120deg,#EFFFFA,var(--mint-soft))"><div class="ad-copy"><span class="ad-kicker">🎙 AI 직원</span>
       <h2>"덜 맵게 해줘"<br><em>말로 주문</em>하세요</h2><p>맵기 · 알레르기 · 추천, 무엇이든 편하게 물어보세요</p></div>
       <img class="ad-img" src="img/tile-ai.png" alt="" style="width:420px;height:420px"></div>`);
   $('#adStage').innerHTML = ads.join('');
@@ -152,7 +139,7 @@ function stopAds() { clearInterval(AD.t); }
 const BRANDS = [
   ['K', '#FEE500', '#191600', '카카오페이'], ['N', '#03C75A', '#fff', '네이버페이'], ['S', '#1428A0', '#fff', '삼성페이'],
   ['₩', '#6A994E', '#fff', '지역사랑상품권'], ['온', '#B5462F', '#fff', '온누리상품권'], ['V', '#1A1F71', '#fff', 'VISA'],
-  ['M', '#EB001B', '#fff', 'Mastercard'], ['P', '#00C499', '#fff', '유니 포인트'], ['U', '#0C3481', '#fff', 'UNIORDER Pay'],
+  ['M', '#EB001B', '#fff', 'Mastercard'], ['P', 'var(--mint-deep)', '#fff', '유니 포인트'], ['U', '#0C3481', '#fff', 'UNIORDER Pay'],
 ];
 function buildLogoLoop() {
   const set = `<div class="loop-set">${BRANDS.map(([l, bg, fg, name]) => `<span class="brand-pill"><i style="background:${bg};color:${fg}">${l}</i>${name}</span>`).join('')}</div>`;
@@ -163,10 +150,10 @@ function buildLogoLoop() {
 function showSplash() {
   ['#welcome', '#start'].forEach((x) => $(x).classList.add('hidden'));
   $('#splash').classList.remove('hidden');
-  startFlux(); startAds();
+  startAds();
 }
 function showWelcome() {
-  stopStartScanner(); stopAds(); startFlux();
+  stopStartScanner(); stopAds();
   $('#splash').classList.add('hidden'); $('#start').classList.add('hidden');
   $('#welcome').classList.remove('hidden');
 }
@@ -362,71 +349,51 @@ function bindScan(onPayload) {
 let IDLE_T = 0;
 const IDLE_MS = 120000;  // 2분 동안 아무 터치 없으면 첫 화면으로
 
-// 키오스크가 연결 QR을 띄우고, 손님 앱(카메라)이 찍으면 서버가 연결 → 폴링으로 감지
-let PAIR = null;  // { code, until, poll, tick }
+// 손님이 앱의 결제 QR을 키오스크 카메라에 보여줌 → 누구인지 알고(이 가게 방문·대화·주문 기억) 고른 결제수단을 이어감
+let START_SCANNER = null;
 
 async function showStart() {
-  $('#start').classList.remove('hidden'); startFlux();
+  $('#start').classList.remove('hidden');
   $('#startWelcome').classList.add('hidden');
   $('#startAsk').classList.remove('hidden');
-  $('#startDemo').classList.toggle('hidden', !S.health.demo_mode);
-  await startPairing();
+  $('#demoRow').classList.toggle('hidden', !S.health.demo_mode);
+  $('#startManual').value = '';
+  scanMsg('');
+  await startStartScanner();
 }
+function scanMsg(t) { const m = $('#scanMsg'); m.textContent = t; m.classList.toggle('hidden', !t); }
 
-async function startPairing() {
-  stopPairing();
-  const box = $('#pairQr');
-  box.classList.remove('done');
-  box.innerHTML = '<span class="pair-loading">QR 준비 중…</span>';
+async function startStartScanner() {
+  await stopStartScanner();
+  const box = $('#startReader');
+  if (!window.Html5Qrcode) { box.innerHTML = '<p>카메라 모듈을 불러오지 못했어요<br>‘없습니다’를 눌러 주문해 주세요</p>'; return; }
+  box.innerHTML = '';
   try {
-    const d = await api('/api/kiosk/pair', { method: 'POST' });
-    const qr = qrcode(0, 'M'); qr.addData(d.qr_payload); qr.make();
-    box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
-    PAIR = { code: d.code, until: Date.now() + d.expires_in * 1000 };
-    PAIR.poll = setInterval(pollPairing, 1500);
-    PAIR.tick = setInterval(tickPairing, 1000); tickPairing();
-  } catch (e) {
-    box.innerHTML = '<span class="pair-loading">QR을 만들지 못했어요<br><small>없습니다를 눌러 주문해 주세요</small></span>';
+    START_SCANNER = new Html5Qrcode('startReader', { verbose: false });
+    let done = false;
+    // 태블릿 앞쪽 카메라 = 손님 쪽
+    await START_SCANNER.start({ facingMode: 'user' }, { fps: 12, qrbox: { width: 300, height: 300 } },
+      (text) => { if (done) return; done = true; onStartQr(text); });
+  } catch {
+    START_SCANNER = null;
+    box.innerHTML = '<p>카메라를 켤 수 없어요<br><small>카메라 권한을 확인하거나 ‘없습니다’를 눌러 주문해 주세요</small></p>';
   }
 }
-function tickPairing() {
-  if (!PAIR) return;
-  const left = Math.max(0, Math.round((PAIR.until - Date.now()) / 1000));
-  $('#pairTimer').textContent = S.lang === 'en' ? `QR refreshes in ${left}s` : `${left}초 후 새 QR로 바뀌어요`;
-  if (left <= 3) startPairing();  // 만료 직전 새로 발급
-}
-async function pollPairing() {
-  if (!PAIR || PAIR.busy) return;
-  PAIR.busy = true;
-  try {
-    const r = await api(`/api/kiosk/pair/${PAIR.code}`);
-    if (r.status === 'linked') { stopPairing(); onLinked(r.session); }
-    else if (r.status !== 'waiting') startPairing();
-  } catch {} finally { if (PAIR) PAIR.busy = false; }
-}
-function stopPairing() {
-  if (PAIR) { clearInterval(PAIR.poll); clearInterval(PAIR.tick); PAIR = null; }
-  $('#pairTimer').textContent = '';
-}
-// 예전 이름 호환
-const stopStartScanner = async () => stopPairing();
-
-function onLinked(session) {
-  $('#pairQr').classList.add('done');
-  $('#startAsk').classList.add('hidden');
-  $('#startWelcome').classList.remove('hidden');
-  renderWelcome(session);
+async function stopStartScanner() {
+  if (START_SCANNER) { const sc = START_SCANNER; START_SCANNER = null; try { await sc.stop(); } catch {} try { sc.clear(); } catch {} }
 }
 
-$('#startNo').addEventListener('click', () => { stopPairing(); beginVisit(null); });
+$('#startNo').addEventListener('click', async () => { await stopStartScanner(); beginVisit(null); });
 $('#appDl').addEventListener('click', () => toast(S.lang === 'en' ? 'Search "UNIORDER" in the app store' : '앱스토어에서 "유니오더"를 검색해 주세요'));
 $('#startDemo').addEventListener('click', async () => {
-  if (!PAIR) return;
-  try { await api(`/api/kiosk/pair/${PAIR.code}/demo`, { method: 'POST' }); pollPairing(); } catch (e) { toast(e.message); }
+  try { const d = await api('/api/demo/qr', { method: 'POST' }); onStartQr(d.qr_payload); } catch (e) { toast(e.message); }
 });
+$('#startManualGo').addEventListener('click', () => { const v = $('#startManual').value.trim(); if (v) onStartQr(v); });
 
 // (카메라 달린 기기용) 손님 결제 QR을 직접 받은 경우
 async function onStartQr(payload) {
+  if (!payload.startsWith('STGPAY:')) { scanMsg('유니오더 앱의 결제 QR을 보여주세요'); return startStartScanner(); }
+  scanMsg('확인했어요!');
   await stopStartScanner();
   $('#startAsk').classList.add('hidden');
   $('#startWelcome').classList.remove('hidden');
@@ -539,12 +506,11 @@ function showPayChoice(order) {
   showModal(c ? `${head}
     <button class="pay-main" data-act="continue">
       <span class="pm-card">💳</span>
-      <span class="pm-body"><b>결제 계속하기</b><small>${m ? `${esc(m.display_name)} ${esc(m.masked_number)}` : '등록한 결제수단 순서대로'}${!m && c.point_balance ? ` · 포인트 ${c.point_balance.toLocaleString()}P 먼저 사용` : ''}</small></span>
+      <span class="pm-body"><b>결제 계속하기</b><small>선택한 방식으로 결제가 진행됩니다 · ${m ? `${esc(m.display_name)} ${esc(m.masked_number)}` : '등록한 결제수단 순서대로'}${c.point_balance ? ` · 유니 포인트 ${c.point_balance.toLocaleString()}P 먼저 사용` : ''}</small></span>
       <span class="pm-go">›</span>
     </button>
     <div class="pay-choices">
-      <button class="pay-choice" data-act="change"><b>결제카드 바꾸기</b><span>앱에 등록한 다른 카드·페이로</span></button>
-      <button class="pay-choice" data-act="card"><b>카드결제</b><span>IC 카드 / 삼성페이 단말기</span></button>
+      <button class="pay-choice" data-act="change"><b>결제 방식 바꾸기</b><span>앱에 등록한 다른 카드·페이, 또는 실물 카드</span></button>
     </div>
     <div class="modal-actions"><button class="btn ghost" data-act="later">나중에 결제</button></div>` : `${head}
     <div class="pay-choices">
@@ -575,18 +541,20 @@ async function showChangeCard(order) {
   let list;
   try { list = await api('/api/kiosk/session/methods', { method: 'POST', body: { customer_session: S.customer.customer_session } }); }
   catch (e) { return payError(order, e.message); }
-  showModal(`<h2>결제카드 바꾸기</h2><p class="sub">${won(order.total_amount)} · 사용할 결제수단을 골라주세요</p>
+  showModal(`<h2>결제 방식 바꾸기</h2><p class="sub">${won(order.total_amount)} · 사용할 결제수단을 골라주세요</p>
     <div class="card-list">${list.map((m) => `
       <button class="card-row ${m.selected ? 'sel' : ''}" data-m="${m.id}" ${m.supported ? '' : 'disabled'}>
         <span class="cr-type">${esc(m.label)}</span><b>${esc(m.display_name)}</b><small>${esc(m.masked_number)}${m.supported ? '' : ' · 이 가게에서 안 돼요'}</small>
         ${m.selected ? '<em>처음 선택</em>' : ''}
-      </button>`).join('')}</div>
-    <div class="modal-actions"><button class="btn ghost" data-act="back">뒤로</button><button class="btn ghost" data-act="qr">다른 카드 QR 찍기</button></div>`);
+      </button>`).join('')}
+      <button class="card-row" data-act="card"><span class="cr-type">실물 카드</span><b>카드결제</b><small>IC 카드 / 삼성페이 단말기</small></button></div>
+    <div class="modal-actions"><button class="btn ghost" data-act="back">뒤로</button><button class="btn ghost" data-act="qr">다른 앱 QR 보여주기</button></div>`);
   $('#modalBody').onclick = (e) => {
     const r = e.target.closest('[data-m]');
     if (r && !r.disabled) return paySession(order, +r.dataset.m);
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'back') showPayChoice(order);
+    if (act === 'card') payCard(order);
     if (act === 'qr') showAppPay(order);
   };
 }

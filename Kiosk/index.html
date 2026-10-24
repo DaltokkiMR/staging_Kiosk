@@ -5,18 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>UNIORDER 테이블오더</title>
   <link rel="stylesheet" href="/shared/fonts/fonts.css">
+  <link rel="stylesheet" href="/shared/theme.css">
   <link rel="stylesheet" href="style.css">
   <script src="lib/html5-qrcode.min.js" defer></script>
   <script src="lib/qrcode.js" defer></script>
-  <script src="/shared/fx/flux-lines.js" defer></script>
   <script src="/shared/fx/counter.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
 <div class="stage" id="stage">
-  <!-- 움직이는 등고선 배경 (첫 화면들 공통) -->
-  <div class="flux-bg" id="fluxBg"></div>
-
   <!-- ① 스플래시: 광고 + 결제수단 로고 흐름 -->
   <section class="full splash" id="splash">
     <div class="logo md splash-logo"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></div>
@@ -33,26 +30,31 @@
     <div class="tiles">
       <button class="tile" data-mode="dine_in"><img src="img/tile-dinein.png" alt=""><span data-i18n="dineIn">매장에서 식사</span></button>
       <button class="tile" data-mode="takeout"><img src="img/tile-takeout.png" alt=""><span data-i18n="takeout">테이크아웃</span></button>
-      <button class="tile ai" data-mode="ai"><img src="img/tile-ai.png" alt=""><span data-i18n="aiOrder">AI로 주문하기</span></button>
+      <button class="tile ai ai-glow" data-mode="ai"><i class="spark s1"></i><i class="spark s2"></i><img src="img/tile-ai.png" alt=""><span data-i18n="aiOrder">AI로 주문하기</span></button>
     </div>
     <button class="lang-btn" id="langBtn">English</button>
   </section>
 
-  <!-- ③ 앱이 있으신가요? — 키오스크가 QR을 띄우고 손님 앱이 찍음 -->
+  <!-- ③ 앱이 있으신가요? — 손님이 앱의 결제 QR을 키오스크 카메라에 보여줌 -->
   <section class="full start hidden" id="start">
     <div class="logo lg start-logo"><img src="img/logo-mark.png" alt=""><b>UNIORDER</b></div>
     <button class="back-btn" id="startBack" data-i18n="back">← 처음으로</button>
     <div class="start-ask" id="startAsk">
-      <div class="pair-box">
-        <div class="pair-qr" id="pairQr"><span class="pair-loading">QR 준비 중…</span></div>
-        <div class="pair-timer" id="pairTimer"></div>
-        <button class="pair-demo hidden" id="startDemo" data-i18n="demoQr">데모 손님으로 연결</button>
+      <div class="scan-box">
+        <div class="scan-cam" id="startReader"></div>
+        <div class="scan-frame"><i></i><i></i><i></i><i></i><span class="scan-line"></span></div>
+        <p class="scan-msg hidden" id="scanMsg"></p>
       </div>
       <div class="ask-side">
         <h1 data-i18n="haveApp">앱이 있으신가요?</h1>
-        <p data-i18n="haveAppSub">앱을 열어 유니오더 카메라에 QR코드를 찍어주세요</p>
+        <p data-i18n="haveAppSub">앱의 결제 QR코드를 카메라에 보여주세요</p>
+        <small class="ask-note" data-i18n="haveAppNote">앱에서 고른 결제수단으로 결제까지 이어지고,<br>전에 드신 메뉴와 나눈 이야기를 기억해 추천해 드려요</small>
         <a class="app-dl" id="appDl" data-i18n="appDl">앱 다운로드하기</a>
         <button class="no-btn" id="startNo" data-i18n="no">없습니다</button>
+        <div class="demo-row hidden" id="demoRow">
+          <button class="pair-demo" id="startDemo" data-i18n="demoQr">데모 손님 QR</button>
+          <input id="startManual" placeholder="QR 내용 직접 입력 (데모)"><button class="pair-demo" id="startManualGo">확인</button>
+        </div>
       </div>
     </div>
     <div class="start-welcome hidden" id="startWelcome"></div>
@@ -70,7 +72,7 @@
     </header>
 
     <nav class="side">
-      <button class="side-ai" id="btnVoice">
+      <button class="side-ai ai-glow" id="btnVoice"><i class="spark s1"></i><i class="spark s2"></i>
         <img src="img/side-ai.png" alt="">
         <span data-i18n="aiOrder">AI로 주문하기</span>
       </button>

@@ -1,0 +1,10 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic>=2.7
+PyJWT>=2.8
+anthropic>=0.40
+httpx>=0.27
+pytest>=8.0
+python-multipart>=0.0.9
+# 로컬 Whisper를 쓸 때만 (STT_PROVIDER=local): pip install openai-whisper  (+ ffmpeg 설치)

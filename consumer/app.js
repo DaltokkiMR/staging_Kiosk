@@ -131,14 +131,14 @@ async function renderHome() {
       <h2>결제 QR코드</h2>
       <div class="pay-qr" id="qrBox"></div>
       <div class="pay-timer" id="qrTimerTxt">&nbsp;</div>
-      <button class="scan-btn" id="scanKiosk"><svg viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16"/></svg>키오스크 QR 찍기</button>
+      <p class="pay-guide">키오스크 첫 화면에서 이 QR을 카메라에 보여주세요</p>
     </div>
     <div class="grad-bar"></div>
     <button class="method-pick" id="methodPick"><span id="methodLabel">${esc(methodName())}</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
       <small id="methodSub">${S.selected === 0 ? '등록한 순서대로 자동 결제' : ''}</small></button>
     <div class="method-list hidden" id="methodList">
       ${[{ id: null, display_name: '전체', sub: '등록한 순서대로 자동 결제' }, ...S.methods].map((m, i) => {
-        const [bg, fg] = i === 0 ? ['#00D7A8', '#fff'] : CARD_STYLE[m.pay_type] || ['#555', '#fff'];
+        const [bg, fg] = i === 0 ? ['var(--mint)', '#fff'] : CARD_STYLE[m.pay_type] || ['#555', '#fff'];
         return `<button class="m-opt ${i === S.selected ? 'sel' : ''}" data-i="${i}"><span class="dot" style="background:${bg};color:${fg}">${i === 0 ? 'ALL' : esc((m.display_name || '?')[0])}</span>
           <span><b>${esc(m.display_name)}</b><small>${i === 0 ? m.sub : esc(typeLabel(m.pay_type)) + ' ' + esc(m.masked_number || '')}</small></span></button>`;
       }).join('')}
@@ -146,7 +146,6 @@ async function renderHome() {
     <div class="pt-row" id="pointToggle"><span>유니 포인트 먼저 사용</span><span class="switch ${S.usePoints ? 'on' : ''}"></span></div>
     <div id="homeReco"><p class="muted">추천을 불러오는 중…</p></div>`;
   $('#screen').onclick = (e) => {
-    if (e.target.closest('#scanKiosk')) return openScanner();
     if (e.target.closest('#qrBox')) return openCardPicker();
     if (e.target.closest('#methodPick')) { $('#methodList').classList.toggle('hidden'); $('#methodPick').classList.toggle('open'); return; }
     const opt = e.target.closest('.m-opt');
@@ -214,7 +213,7 @@ async function renderHomeReco() {
 
 // ===== QR 탭 → 결제 카드 고르기 (React Bits Depth Carousel) =====
 function cardFace(m, i) {
-  if (i === 0) return `<div class="ccard" style="background:linear-gradient(135deg,#00D7A8,#2FC6E8)"><span class="t">자동 결제</span>
+  if (i === 0) return `<div class="ccard" style="background:linear-gradient(135deg,var(--mint),var(--sky))"><span class="t">자동 결제</span>
     <span class="n">전체 · 우선순위대로</span><span class="m">${S.methods.slice(0, 3).map((x) => esc(x.display_name)).join(' → ') || '결제수단 등록 필요'}</span></div>`;
   const [bg, fg] = CARD_STYLE[m.pay_type] || ['#555', '#fff'];
   return `<div class="ccard" style="background:linear-gradient(135deg,${bg},${bg}cc);color:${fg}"><span class="t">${esc(typeLabel(m.pay_type))}${m.region ? ' · ' + esc(m.region) : ''}</span>
@@ -239,46 +238,6 @@ function openCardPicker() {
     issueQr();
     toast(`${name(pick)}(으)로 결제 QR을 만들었어요`);
   };
-}
-
-// ===== 키오스크 QR 찍기: 키오스크 화면의 연결 QR을 폰 카메라로 → 고른 결제수단이 키오스크로 이어짐 =====
-let SCANNER = null;
-async function stopScanner() { if (SCANNER) { const sc = SCANNER; SCANNER = null; try { await sc.stop(); } catch {} } }
-async function openScanner() {
-  stopQr();
-  openSheet(`
-    <h2>키오스크 QR 찍기</h2>
-    <p class="muted" style="margin:0">키오스크 화면의 QR을 비춰 주세요. <b>${esc(methodName())}</b>${S.selected === 0 ? '(등록 순서대로)' : ''}로 결제가 이어져요.</p>
-    <div id="pairReader"></div>
-    <p class="scan-note" id="scanNote">카메라를 켜는 중…</p>
-    <div class="manual"><input id="pairManual" placeholder="(데모) 키오스크 코드 또는 QR 내용"><button id="pairManualGo">연결</button></div>
-    <button class="ghost-pill" data-close>닫기</button>`, () => { stopScanner(); if (S.view === 'home' && !S.linked) issueQr(); });
-  $('#pairManualGo').onclick = () => { const v = $('#pairManual').value.trim(); if (v) onPairScan(v); };
-  if (!window.Html5Qrcode) { $('#scanNote').textContent = '카메라 모듈을 불러오지 못했어요'; return; }
-  try {
-    SCANNER = new Html5Qrcode('pairReader');
-    let done = false;
-    await SCANNER.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, (text) => {
-      if (done) return; done = true; onPairScan(text);
-    });
-    $('#scanNote').textContent = 'QR이 네모 안에 들어오면 자동으로 연결돼요';
-  } catch {
-    SCANNER = null;
-    $('#scanNote').textContent = '카메라를 켤 수 없어요. 아래에 직접 입력할 수 있어요.';
-  }
-}
-async function onPairScan(text) {
-  await stopScanner();
-  let payload = text.trim();
-  if (!payload.startsWith('UNIORDER:PAIR:')) {
-    if (/^[A-Za-z0-9_-]{4,}$/.test(payload)) payload = 'UNIORDER:PAIR:' + payload;
-    else { toast('유니오더 키오스크 QR이 아니에요'); return openScanner(); }
-  }
-  const method_id = S.selected === 0 ? null : S.methods[S.selected - 1]?.id ?? null;
-  try {
-    const r = await api('/api/me/pair', { method: 'POST', body: { qr_payload: payload, method_id, use_points: S.usePoints } });
-    showLinked(r.token, r);
-  } catch (e) { toast(e.message); openScanner(); }
 }
 
 // ===== 지도 =====
@@ -453,7 +412,7 @@ async function issueQr() {
   const until = Date.now() + 55 * 1000;
   const tick = () => {
     const left = Math.max(0, Math.round((until - Date.now()) / 1000));
-    const el = $('#qrTimerTxt'); if (el) el.innerHTML = `<b>${left}</b>초 후 새 QR · 카메라 있는 키오스크에 보여주세요`;
+    const el = $('#qrTimerTxt'); if (el) el.innerHTML = `<b>${left}</b>초 후 새 QR로 바뀌어요`;
     if (left <= 0) issueQr();
   };
   tick(); S.qrTimer = setInterval(tick, 1000);
@@ -478,7 +437,7 @@ function showLinked(token, info) {
       <h2>키오스크와 연결됐어요</h2>
       <p class="muted">${esc(info.store)} · ${esc(info.kiosk || '')}</p></div>
     <div class="card" style="text-align:center"><b>💳 ${info.method ? esc(info.method) + '로 결제돼요' : '등록한 결제수단 순서대로 결제돼요'}</b>
-      <p class="muted" style="margin:6px 0 0">키오스크에서 주문하고 ‘결제 계속하기’를 누르면 바로 결제돼요.<br>다른 카드는 키오스크에서 ‘결제카드 바꾸기’로 고를 수 있어요.</p></div>
+      <p class="muted" style="margin:6px 0 0">키오스크에서 주문하고 ‘결제 계속하기’를 누르면 바로 결제돼요.<br>다른 카드는 키오스크에서 ‘결제 방식 바꾸기’로 고를 수 있어요.</p></div>
     <button class="mint-btn sm" data-close>확인</button>`, () => { S.linked = false; go('home'); });  // 다 쓴 QR 대신 새 QR
   clearInterval(S.linkTimer);
   const until = Date.now() + 30 * 60 * 1000;
