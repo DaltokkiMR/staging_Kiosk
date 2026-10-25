@@ -325,7 +325,14 @@ input, select { font: inherit; color: inherit; }
 .map-wrap:has(.ai-list:not(.hidden)) .locate, .map-wrap:has(.ai-list:not(.hidden)) .demo-note { display: none; }
 
 /* ===== Pill Nav (React Bits, glide · pill · bounce .42) ===== */
-.bottom-nav.pn { display: block; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--mint-nav); }
+/* 안쪽 선택 표시가 알약 모양이라, 감싸는 바도 화면 아래에서 살짝 띄운 둥근 캡슐로 */
+.bottom-nav.pn { display: block; bottom: calc(12px + env(safe-area-inset-bottom)); width: min(416px, calc(100% - 24px));
+  padding: 6px; border-radius: 999px; background: var(--mint-nav); box-shadow: 0 10px 28px rgba(0,80,65,.22); }
+/* 지도는 캡슐 뒤까지 꽉 채우고, 지도 아래쪽 요소들은 캡슐 위로 올림 (캡슐 60px + 아래 여백 12px) */
+.map-wrap { --nav-space: calc(84px + env(safe-area-inset-bottom)); height: 100vh; }
+.map-wrap .locate, .map-wrap .demo-note { bottom: calc(var(--nav-space) + 30px); }  /* 지도 출처 표기 위로 */
+.map-wrap .pin-card, .map-wrap .ai-list { bottom: var(--nav-space); }
+.map-wrap .leaflet-bottom { bottom: var(--nav-space); }
 .pn-track { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); height: 48px; }
 .pn-track > button { position: relative; z-index: 1; height: 48px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
   color: #0E3A33; font-size: 13px; font-weight: 700; padding: 0; }
@@ -392,3 +399,46 @@ input, select { font: inherit; color: inherit; }
 .toast { display: none !important; }
 
 .pay-guide { margin: 12px auto 0; display: inline-block; padding: 9px 16px; border-radius: 20px; background: var(--mint-wash); color: var(--mint-dark); font-size: 13px; font-weight: 700; }
+
+/* ===== 회원가입 (시연용으로 미리 채워진 칸) ===== */
+.login.signup .login-hero { display: none; }
+.login.signup { justify-content: flex-start; padding-top: 22px; }
+.signup-title { margin: 6px 0 14px; font-size: 26px; font-weight: 700; letter-spacing: -.4px; }
+.login .f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #555; min-width: 0; }
+.login .f input { width: 100%; min-width: 0; }
+.login .f > span:empty, .login .f > span.hidden { display: none; }
+.f-row { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 10px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; height: 52px; padding: 4px; border-radius: 16px; background: #F1F4F5; }
+.seg button { border-radius: 12px; font-size: 15px; font-weight: 700; color: #777; }
+.seg button.on { background: #fff; color: var(--brand-dark); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.agree { margin-top: 4px; padding: 14px 16px; border-radius: 16px; background: #F6F8F9; display: flex; flex-direction: column; gap: 10px; }
+.agree label { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #444; }
+.agree label.all { font-weight: 700; color: var(--ink); padding-bottom: 10px; border-bottom: 1px solid #E5E9EB; }
+.agree input { width: 20px; height: 20px; accent-color: var(--mint); flex: none; }
+
+/* ===== 내 입맛 설정 ===== */
+.taste h2 { font-size: 22px; }
+.taste .lead { margin: 2px 0 6px; font-size: 14px; }
+.taste h3 { margin: 22px 0 10px; font-size: 16px; }
+.taste h3 small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.taste .tiny { font-size: 12px; margin: 6px 0 0; }
+.t-row { padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
+.t-row:last-of-type { border-bottom: 0; }
+.t-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; font-size: 15px; font-weight: 600; }
+.t-head b { font-size: 13px; color: var(--brand); }
+.t-row input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 99px; outline: none;
+  background: linear-gradient(90deg, var(--mint) var(--v, 60%), #E6ECEE var(--v, 60%)); }
+.t-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff;
+  border: 3px solid var(--mint); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.t-row input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--mint); }
+.pick-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick-chips button { height: 38px; padding: 0 14px; border-radius: 999px; background: #F1F4F5; color: #444; font-size: 14px; font-weight: 600;
+  transition: background .15s, color .15s, transform .12s; }
+.pick-chips button.on { background: var(--mint); color: #fff; }
+.pick-chips button:active { transform: scale(.95); }
+.taste textarea { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #E2E8EA; background: #fff; resize: none;
+  font: inherit; font-size: 15px; line-height: 1.5; outline: none; }
+.taste textarea:focus { border-color: var(--mint); }
+.taste .mint-btn { margin-top: 24px; }
+.taste .mint-btn:disabled { opacity: .7; }
+.taste .skip { display: block; margin: 12px auto 0; align-self: center; }

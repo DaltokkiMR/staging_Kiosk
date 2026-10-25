@@ -33,7 +33,7 @@ const I18N = {
   en: {
     touch: 'Touch the screen to start', dineIn: 'Dine in', takeout: 'Take out', aiOrder: 'Order with AI', back: '← Home',
     haveApp: 'Do you have the app?', haveAppSub: 'Show the payment QR in the app to the camera', haveAppNote: 'Your chosen payment carries through, and we remember what you liked here.', appDl: 'Download the app',
-    ok: 'OK', demoQr: 'Demo QR', no: 'No', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
+    ok: 'OK', demoQr: 'Demo QR', no: 'No', later: 'Maybe later', noSub: 'Order without the app', searchPh: 'Search for food...', foodOrder: 'Your order',
     cartEmpty: 'Tap a menu to add it', count: 'Items', order: 'Order', aiStaff: 'AI Staff', aiStaffSub: 'Ask anything — spiciness, allergies, recommendations',
     chatPh: 'Speak or type', send: 'Send', end: 'End', menuTitle: 'Menu', quick: 'Quick',
   },
@@ -139,7 +139,7 @@ function stopAds() { clearInterval(AD.t); }
 const BRANDS = [
   ['K', '#FEE500', '#191600', '카카오페이'], ['N', '#03C75A', '#fff', '네이버페이'], ['S', '#1428A0', '#fff', '삼성페이'],
   ['₩', '#6A994E', '#fff', '지역사랑상품권'], ['온', '#B5462F', '#fff', '온누리상품권'], ['V', '#1A1F71', '#fff', 'VISA'],
-  ['M', '#EB001B', '#fff', 'Mastercard'], ['P', 'var(--mint-deep)', '#fff', '유니 포인트'], ['U', '#0C3481', '#fff', 'UNIORDER Pay'],
+  ['M', '#EB001B', '#fff', 'Mastercard'], ['P', 'var(--mint-deep)', '#fff', '포인트'], ['U', '#0C3481', '#fff', 'UNIORDER Pay'],
 ];
 function buildLogoLoop() {
   const set = `<div class="loop-set">${BRANDS.map(([l, bg, fg, name]) => `<span class="brand-pill"><i style="background:${bg};color:${fg}">${l}</i>${name}</span>`).join('')}</div>`;
@@ -285,7 +285,8 @@ function renderCart() {
   $('#cartTotal').innerHTML = dc ? `<s class="was">${won(sum)}</s>${won(sum - dc)}` : won(sum);
   $('#btnOrder').disabled = !S.cart.length;
   const type = S.orderType === 'takeout' ? (S.lang === 'en' ? 'Take out' : '포장') : (S.lang === 'en' ? 'Dine in' : '매장 식사');
-  $('#orderMeta').textContent = `${type}${S.store?.name ? ' · ' + S.store.name : ''}${dc ? ` · ${S.store.discount.rate}% 할인 -${won(dc)}` : ''}`;
+  // 할인은 줄 중간에서 끊기지 않게 알약 하나로 묶어서 표시
+  $('#orderMeta').innerHTML = `${type}${S.store?.name ? ' · ' + esc(S.store.name) : ''}${dc ? ` <em class="meta-dc">${S.store.discount.rate}% ${S.lang === 'en' ? 'off' : '할인'} −${won(dc)}</em>` : ''}`;
 }
 $('#cartList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-q]'); if (!b) return;
@@ -383,7 +384,7 @@ async function stopStartScanner() {
   if (START_SCANNER) { const sc = START_SCANNER; START_SCANNER = null; try { await sc.stop(); } catch {} try { sc.clear(); } catch {} }
 }
 
-$('#startNo').addEventListener('click', async () => { await stopStartScanner(); beginVisit(null); });
+['#startNo', '#startLater'].forEach((id) => $(id).addEventListener('click', async () => { await stopStartScanner(); beginVisit(null); }));
 $('#appDl').addEventListener('click', () => toast(S.lang === 'en' ? 'Search "UNIORDER" in the app store' : '앱스토어에서 "유니오더"를 검색해 주세요'));
 $('#startDemo').addEventListener('click', async () => {
   try { const d = await api('/api/demo/qr', { method: 'POST' }); onStartQr(d.qr_payload); } catch (e) { toast(e.message); }
@@ -410,11 +411,11 @@ async function onStartQr(payload) {
 function renderWelcome(c) {
   const m = c.selected_method;
   $('#startWelcome').innerHTML = `
-    <div class="w-hello">${esc(c.name)}님</div>
+    <div class="w-hello">✓ ${S.lang === 'en' ? 'Connected to your app' : '앱과 연결됐어요'}</div>
     <p class="w-greet">${esc(c.greeting)}</p>
     <div class="w-chips">
       <span class="w-chip">💳 ${m ? `${esc(m.display_name)} ${esc(m.masked_number)}로 결제돼요` : '등록한 결제수단 순서대로 결제돼요'}</span>
-      <span class="w-chip">유니 포인트 ${c.point_balance.toLocaleString()}P</span>
+      <span class="w-chip">포인트 ${c.point_balance.toLocaleString()}P</span>
     </div>
     ${c.recommended_menus.length ? `<div class="w-reco-title">✦ 오늘 추천</div>
     <div class="w-recos">${[...c.usual_items.slice(0, 1).map((u) => S.menus.find((x) => x.id === u.menu_item_id)).filter(Boolean).map((x) => ({ ...x, usual: true })),
@@ -480,7 +481,7 @@ function renderCustomer() {
   if (!c) return el.classList.add('hidden');
   el.classList.remove('hidden');
   const m = c.selected_method;
-  el.innerHTML = `<span>👋 ${esc(c.name)}님 · 💳 ${m ? esc(m.display_name) : '우선순위 결제'} · 유니 ${c.point_balance.toLocaleString()}P</span>
+  el.innerHTML = `<span>👋 ${esc(c.name)}님 · 💳 ${m ? esc(m.display_name) : '우선순위 결제'} · 포인트 ${c.point_balance.toLocaleString()}P</span>
     ${c.usual_items.length ? `<button class="chip-btn" id="btnUsual">늘 먹던 거 담기</button>` : ''}`;
   $('#btnUsual')?.addEventListener('click', () => {
     const mm = S.menus.find((x) => x.id === c.usual_items[0].menu_item_id);
@@ -506,7 +507,7 @@ function showPayChoice(order) {
   showModal(c ? `${head}
     <button class="pay-main" data-act="continue">
       <span class="pm-card">💳</span>
-      <span class="pm-body"><b>결제 계속하기</b><small>선택한 방식으로 결제가 진행됩니다 · ${m ? `${esc(m.display_name)} ${esc(m.masked_number)}` : '등록한 결제수단 순서대로'}${c.point_balance ? ` · 유니 포인트 ${c.point_balance.toLocaleString()}P 먼저 사용` : ''}</small></span>
+      <span class="pm-body"><b>결제 계속하기</b><small>선택한 방식으로 결제가 진행됩니다 · ${m ? `${esc(m.display_name)} ${esc(m.masked_number)}` : '등록한 결제수단 순서대로'}${c.point_balance ? ` · 포인트 ${c.point_balance.toLocaleString()}P 먼저 사용` : ''}</small></span>
       <span class="pm-go">›</span>
     </button>
     <div class="pay-choices">

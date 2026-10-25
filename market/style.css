@@ -118,7 +118,8 @@ input, select, textarea { font: inherit; color: inherit; }
 .form { display: flex; flex-direction: column; gap: 12px; }
 .form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .form input, .form select, .form textarea { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
-.form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.form input:not([type=checkbox]):not([type=radio]), .form select, .form textarea { min-width: 0; width: 100%; }  /* 입력칸 기본 너비 때문에 카드 밖으로 넘치지 않게 */
 .key { font-family: ui-monospace, monospace; font-size: 12px; background: var(--bg); padding: 4px 8px; border-radius: 6px; word-break: break-all; }
 
 .modal-wrap { position: fixed; inset: 0; background: rgba(10,20,30,.45); display: grid; place-items: center; z-index: 30; padding: 16px; }
@@ -142,3 +143,15 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .disc-set { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
 .disc-set legend { font-weight: 700; padding: 0 6px; }
+
+/* 손님 요청 실시간 알림 (오른쪽 위) */
+.alerts { position: fixed; right: 24px; top: 24px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: 360px; }
+.req-alert { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 14px 16px; border-radius: 16px; background: #fff;
+  border: 1px solid var(--line); box-shadow: 0 14px 34px -10px rgba(0,0,0,.25); animation: alertIn .35s cubic-bezier(.2,.9,.3,1.2); transition: opacity .4s, transform .4s; }
+.req-alert.out { opacity: 0; transform: translateX(20px); }
+.req-alert .ic { font-size: 22px; line-height: 1.2; }
+.req-alert b { display: block; font-size: 15px; }
+.req-alert small { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+.req-alert em { display: block; margin-top: 8px; font-style: normal; font-size: 12px; font-weight: 700; color: var(--brand); }
+@keyframes alertIn { from { opacity: 0; transform: translateY(-10px) scale(.97); } }
+.form textarea { resize: vertical; line-height: 1.5; }

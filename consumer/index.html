@@ -25,10 +25,24 @@
         <h1>사장님과 손님의<br><em>통합 테이블오더</em></h1>
       </div>
       <form id="loginForm" class="login-form">
+        <h2 class="signup-title signup-only hidden">회원가입</h2>
         <div class="login-fields hidden" id="loginFields">
-          <input id="loginEmail" type="email" placeholder="이메일" value="user@demo.com" required>
-          <input id="loginPw" type="password" placeholder="비밀번호" value="1234" required>
-          <input id="signupName" placeholder="이름" class="hidden">
+          <!-- 회원가입 정보 (시연 시간을 아끼려고 미리 채워둠, app.js의 SIGNUP_DEMO) -->
+          <label class="f signup-only hidden">이름<input id="signupName" autocomplete="name"></label>
+          <div class="f-row signup-only hidden">
+            <label class="f">생년월일<input id="signupBirth" type="date"></label>
+            <div class="f">성별<div class="seg" id="signupGender"><button type="button" data-g="여">여</button><button type="button" data-g="남">남</button></div></div>
+          </div>
+          <label class="f signup-only hidden">휴대폰 번호<input id="signupPhone" type="tel" placeholder="010-0000-0000"></label>
+          <label class="f"><span class="signup-only hidden">이메일</span><input id="loginEmail" type="email" placeholder="이메일" value="user@demo.com" required></label>
+          <label class="f"><span class="signup-only hidden">비밀번호</span><input id="loginPw" type="password" placeholder="비밀번호" value="1234" required></label>
+          <label class="f signup-only hidden">비밀번호 확인<input id="signupPw2" type="password"></label>
+          <div class="agree signup-only hidden" id="signupAgree">
+            <label class="all"><input type="checkbox" data-all>약관 전체 동의</label>
+            <label><input type="checkbox" data-req>[필수] 이용약관 동의</label>
+            <label><input type="checkbox" data-req>[필수] 개인정보 수집·이용 동의</label>
+            <label><input type="checkbox">[선택] 혜택·이벤트 알림 받기</label>
+          </div>
         </div>
         <button type="button" class="link-sm" id="toggleSignup">계정이 없으신가요?</button>
         <button class="mint-btn" id="loginBtn">로그인하기</button>

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Kiosk, MenuItem, MenuOption, Order, OrderStatus, PayType, Store, User
+from ..models import ChatLog, Kiosk, MenuItem, MenuOption, Order, OrderStatus, PayType, Store, User
 from ..schemas import (
     KioskIn,
     KioskOut,
@@ -177,3 +177,19 @@ def insights(store_id: int, days: int = 30, owner: User = Depends(require_owner)
     """키오스크 대화 분석: 손님들이 많이 찾았지만 없는 옵션, 자주 묻는 주제, 개선 제안."""
     store = get_owned_store(store_id, owner, db)
     return ai_service.owner_insights(db, store, days)
+
+
+@router.get("/stores/{store_id}/requests")
+def recent_requests(store_id: int, after_id: int | None = None, owner: User = Depends(require_owner), db: Session = Depends(get_db)):
+    """손님이 키오스크에서 찾았지만 가게에 없던 것(유아 메뉴 등) — 사장님 화면 실시간 알림용.
+    after_id 보다 새 것만, 오래된 순. 처음 부를 때(after_id 없음)는 알림 없이 기준이 될 마지막 id만 알려줌."""
+    get_owned_store(store_id, owner, db)
+    last = db.query(ChatLog.id).filter(ChatLog.store_id == store_id).order_by(ChatLog.id.desc()).first()
+    last_id = last[0] if last else 0
+    if after_id is None:
+        return {"last_id": last_id, "items": []}
+    logs = (db.query(ChatLog).filter(ChatLog.store_id == store_id, ChatLog.role == "user", ChatLog.id > after_id)
+            .order_by(ChatLog.id).limit(50).all())
+    items = [{"id": l.id, "content": l.content, "requests": l.unmet_requests, "created_at": l.created_at}
+             for l in logs if l.unmet_requests]
+    return {"last_id": last_id, "items": items}

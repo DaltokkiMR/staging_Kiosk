@@ -4,13 +4,14 @@
    UFX.countdown(el, until, { onEnd }) → 'D-1 05:12:33' 형태로 매초 굴러가는 남은 시간 → { stop() } */
 (function () {
   const css = `
-  .ufx-counter { display: inline-flex; align-items: baseline; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ufx-digit { position: relative; display: inline-block; height: 1.15em; width: 0.62em; overflow: hidden; vertical-align: -0.15em;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
-            mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%); }
+  .ufx-counter { display: inline-flex; align-items: center; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; vertical-align: middle; }
+  /* 숫자 칸과 기호(D-, :)를 같은 높이의 칸에 넣고 가운데 정렬 → 기준선이 어긋나 삐뚤어 보이지 않게 */
+  .ufx-digit { position: relative; display: inline-block; height: 1.15em; width: 0.62em; overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%); }
   .ufx-strip { position: absolute; left: 0; right: 0; top: 0; transition: transform var(--ufx-dur, .7s) cubic-bezier(.34, 1.45, .64, 1); will-change: transform; }
   .ufx-strip i { display: flex; align-items: center; justify-content: center; height: 1.15em; font-style: normal; }
-  .ufx-sym { display: inline-block; white-space: pre; }`;
+  .ufx-sym { display: inline-block; line-height: 1.15em; white-space: pre; }  /* flex로 하면 공백만 든 칸이 사라짐 */`;
   if (!document.getElementById('ufx-counter-css')) {
     const st = document.createElement('style'); st.id = 'ufx-counter-css'; st.textContent = css; document.head.appendChild(st);
   }
