@@ -1,7 +1,7 @@
 """데모 데이터. 서버 시작 시 DB가 비어 있으면 자동으로 넣습니다.
 
   사장님 : owner@demo.com / 1234   (도도식당, 도도분식)
-  손님   : user@demo.com  / 1234   (김민지 — 평일 점심 한식, 저녁 분식, 주말 카페 패턴)
+  손님   : user@demo.com  / 1234   (김디미 — 평일 점심 한식, 저녁 분식, 주말 카페 패턴)
   키오스크 X-Kiosk-Key : demo-kiosk-key
 
 지도 데모 위치: 서울 마포구 망원동 일대 (중심 37.5555, 126.9100)
@@ -162,7 +162,7 @@ def seed(db: Session) -> None:
     db.add_all([owner, owner2])
     user = None
     if settings.SEED_CUSTOMER:
-        user = User(email="user@demo.com", password_hash=pw, name="김민지", role=Role.CONSUMER.value,
+        user = User(email="user@demo.com", password_hash=pw, name="김디미", role=Role.CONSUMER.value,
                     preferences={"allergies": ["땅콩"]})
         db.add(user)
     db.flush()
@@ -237,7 +237,7 @@ def seed(db: Session) -> None:
         db.commit()
         return
 
-    # ---------- 데모 손님(김민지) 행동 패턴 ----------
+    # ---------- 데모 손님(김디미) 행동 패턴 ----------
     # 평일 점심: 도도식당 김치찌개 단골 → "늘 드시던 김치찌개로 드릴까요?"
     for i, d in enumerate(_last({0, 1, 2, 3, 4}, 4, start=2)):
         _order(db, store, [(kimchi, 1)] + ([(jeyuk, 1)] if i == 1 else []), _at(d, 12, 20), user)
@@ -249,13 +249,13 @@ def seed(db: Session) -> None:
     for d in _last({5, 6}, 2, start=1):
         _order(db, cafe, [(cafe.menus[1], 1), (cafe.menus[2], 1)], _at(d, 15, 30), user, PayType.NAVER_PAY)
 
-    # 김민지가 가게별로 키오스크 AI와 나눴던 대화 (가게마다 따로 기억)
+    # 김디미가 가게별로 키오스크 AI와 나눴던 대화 (가게마다 따로 기억)
     for d, sid, st, q in [(9, "m1", store, "김치찌개 좀 덜 맵게 되나요?"), (9, "m1", store, "땅콩 들어간 메뉴 있어요?"),
                           (4, "m2", store2, "로제떡볶이 많이 달아요?")]:
         db.add(ChatLog(store_id=st.id, user_id=user.id, session_id=f"seed-{sid}", role="user", content=q,
                        unmet_requests=["맵기 조절"] if "덜 맵게" in q else [], created_at=_at(d, 12, 15)))
 
-    # 김민지의 롤링파스타 기록: 주말 점심 2번 + "덜 맵게" 물어봤던 대화 (가게별 기억)
+    # 김디미의 롤링파스타 기록: 주말 점심 2번 + "덜 맵게" 물어봤던 대화 (가게별 기억)
     for d, items in zip(_last({5, 6}, 2, start=6), [[(rp["토마토 미트 파스타"], 1), (rp["아이스티"], 1)],
                                                    [(rp["토마토 미트 파스타"], 1), (rp["로제 크림 쉬림프 파스타"], 1)]]):
         _order(db, rolling, items, _at(d, 12, 40), user, PayType.CREDIT_CARD)
@@ -264,7 +264,7 @@ def seed(db: Session) -> None:
                        unmet_requests=["맵기 조절"] if "덜 맵게" in q else [], created_at=_at(_last({5, 6}, 1, start=6)[0], 12, 35)))
 
     # ---------- 다른 손님들 (비슷한 손님 추천용) ----------
-    # 도도식당 단골들은 스시하루·고깃집도 자주 감 → 김민지에게 "비슷한 손님들이 자주 가는 곳"
+    # 도도식당 단골들은 스시하루·고깃집도 자주 감 → 김디미에게 "비슷한 손님들이 자주 가는 곳"
     others = []
     for i, nm in enumerate(["이서준", "박지우", "최예린", "정하준", "강수아", "윤도윤"]):
         u = User(email=f"guest{i + 1}@demo.com", password_hash=pw, name=nm, role=Role.CONSUMER.value, preferences={})
